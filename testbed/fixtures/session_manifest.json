@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "target": {
+    "name": "official ParaBank",
+    "origin_env": "PARABANK_ORIGIN",
+    "default_origin": "http://127.0.0.1:8080/parabank",
+    "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+  },
+  "credentials": "read from the listed environment variables; do not store values in manifests or logs",
+  "principals": [
+    {
+      "alias": "baseline_negative_checking",
+      "username_env": "PARABANK_BASELINE_USERNAME",
+      "password_env": "PARABANK_BASELINE_PASSWORD",
+      "known_customer_id": "12212",
+      "known_accounts": ["12345", "12678", "13344"]
+    },
+    {
+      "alias": "alpha",
+      "username_env": "PARABANK_DEMO_ALPHA_USERNAME",
+      "password_env": "PARABANK_DEMO_ALPHA_PASSWORD",
+      "seeded_savings_accounts": 2
+    },
+    {
+      "alias": "beta",
+      "username_env": "PARABANK_DEMO_BETA_USERNAME",
+      "password_env": "PARABANK_DEMO_BETA_PASSWORD",
+      "seeded_savings_accounts": 1
+    },
+    {
+      "alias": "gamma",
+      "username_env": "PARABANK_DEMO_GAMMA_USERNAME",
+      "password_env": "PARABANK_DEMO_GAMMA_PASSWORD",
+      "seeded_savings_accounts": 1
+    },
+    {
+      "alias": "delta",
+      "username_env": "PARABANK_DEMO_DELTA_USERNAME",
+      "password_env": "PARABANK_DEMO_DELTA_PASSWORD",
+      "seeded_savings_accounts": 1
+    }
+  ],
+  "generated_fixture_manifest": "testbed/.cache/seed_manifest.json"
+}

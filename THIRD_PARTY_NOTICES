@@ -1,0 +1,37 @@
+THIRD-PARTY NOTICES
+
+This project includes or invokes the following third-party software. Versions in the Python environment are pinned by uv.lock; license texts remain with their upstream distributions and must be preserved when redistributing those distributions.
+
+Target and testbed toolchain
+
+- Parasoft ParaBank, immutable upstream commit ee82474be5f58bea3ddc8be0fd831072b00201cb, Apache License 2.0. Source: https://github.com/parasoft/parabank
+- Apache Maven 3.9.9, Apache License 2.0. Source: https://maven.apache.org/
+- Apache Tomcat 10.1.60, Apache License 2.0. Source: https://tomcat.apache.org/
+
+Runtime dependencies
+
+- Playwright Python 1.60.0, Apache License 2.0. Source: https://github.com/microsoft/playwright-python
+- FastAPI 0.141.1, MIT License. Source: https://github.com/fastapi/fastapi
+- Pydantic 2.13.5 and pydantic-core 2.46.5, MIT License. Source: https://github.com/pydantic/pydantic
+- Uvicorn 0.53.0, BSD 3-Clause License. Source: https://github.com/encode/uvicorn
+- Starlette 1.6.0, BSD 3-Clause License. Source: https://github.com/encode/starlette
+
+Development and transitive dependencies present in uv.lock
+
+- HTTPX 0.28.1 and HTTPcore 1.0.9, BSD 3-Clause License. Source: https://github.com/encode/httpx
+- pytest 8.4.2, MIT License. Source: https://github.com/pytest-dev/pytest
+- AnyIO 4.15.1, MIT License. Source: https://github.com/agronholm/anyio
+- annotated-types 0.8.0, MIT License. Source: https://github.com/annotated-types/annotated-types
+- certifi 2026.7.22, Mozilla Public License 2.0. Source: https://github.com/certifi/python-certifi
+- greenlet 3.5.6, MIT License. Source: https://github.com/python-greenlet/greenlet
+- h11 0.16.0, MIT License. Source: https://github.com/python-hyper/h11
+- idna 3.20, BSD 3-Clause License. Source: https://github.com/kjd/idna
+- pyee 13.0.1, MIT License. Source: https://github.com/microsoft/pyee
+- typing-extensions 4.16.0, Python Software Foundation License 2.0. Source: https://github.com/python/typing_extensions
+- click 8.5.0, BSD 3-Clause License. Source: https://github.com/pallets/click
+- packaging 26.3, Apache License 2.0 or BSD 2-Clause License. Source: https://github.com/pypa/packaging
+- pluggy 1.6.0, MIT License. Source: https://github.com/pytest-dev/pluggy
+- Pygments 2.21.0, BSD 2-Clause License. Source: https://github.com/pygments/pygments
+- iniconfig 2.3.0, MIT License. Source: https://github.com/pytest-dev/iniconfig
+
+The lockfile may include platform-specific wheels and additional metadata packages. Re-run the dependency/license audit whenever uv.lock changes. This file records the licenses of the versions present in the current project environment; it is not a substitute for each upstream license text.

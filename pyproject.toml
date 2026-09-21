@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "computer-use-automation"
+version = "0.1.0"
+description = "A local, reviewable UI capability runtime."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2.11,<3",
+  "playwright==1.60.0",
+  "fastapi>=0.116,<1",
+  "uvicorn>=0.35,<1",
+]
+
+[project.scripts]
+cua = "cua.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<9",
+  "httpx>=0.28,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cua"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "testbed"]
+pythonpath = ["src", "."]
+addopts = "-ra"

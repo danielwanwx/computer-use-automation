@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "status": "EMPTY_UNTIL_LIVE_DISCOVERY",
+  "entries": [],
+  "note": "No live discovery artifact is included. A real successful trace, validation qualification, and approval must create an immutable entry before replay is advertised."
+}
