@@ -46,8 +46,9 @@
     },
     {
       "case_id": "V11",
-      "status": "PASS",
-      "evidence_type": "clean_checkout",
+      "status": "PARTIAL_DIAGNOSTIC",
+      "acceptance_status": "NOT_RUN",
+      "evidence_type": "clean_checkout_diagnostic",
       "recorded_on": "2026-09-21",
       "repository_commit": "2d9a009d6ef294341ba5f5547d05b525f49aec41",
       "source_fingerprint": "e37eb3c42be96e159e9a2b5438452e170198ba74e5c43f98353eec07b3c2befe",
@@ -70,8 +71,10 @@
         "provider_calls": 0,
         "replay_assertions": true
       },
-      "source": "fresh checkout at the recorded commit; no development database or browser state was used"
+      "native_no_model_replay": false,
+      "approved_real_artifact": false,
+      "source": "fresh checkout setup and offline suite diagnostic; this does not prove native no-model replay from an approved real artifact"
     }
   ],
-  "note": "V2 native offline replay and V11 clean-checkout evidence are recorded. Live provider discovery, real-person takeover, and browser end-to-end acceptance remain unrun."
+  "note": "V2 records a native loopback run with an injected offline scripted backend. V11 records only a clean-checkout/offline diagnostic and remains NOT_RUN until native no-model replay uses an approved real artifact. Live provider discovery, real-person takeover, and browser end-to-end acceptance remain unrun."
 }

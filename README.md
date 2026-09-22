@@ -7,7 +7,7 @@ This repository contains a local, reviewable UI capability runtime for the singl
 Use Python 3.12 through uv and keep the lockfile unchanged:
 
 ```sh
-cd /Users/danielwan/Projects/computer-use-automation
+cd <project-root>
 uv python install 3.12
 uv sync --locked
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q
@@ -21,7 +21,7 @@ The verification entrypoint runs the offline checks and prints the complete acce
 .venv/bin/python scripts/verify_release.py
 ```
 
-It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. The current evidence records V2 and V11 as `PASS`; `NOT_RUN` is retained for every unsupported live or manual case.
+It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. V2 has a fingerprinted native loopback record using an injected offline scripted backend. V11 remains `NOT_RUN`: its clean-checkout record is a partial diagnostic until native no-model replay runs from a clean checkout with an approved real artifact.
 
 ## Native ParaBank testbed
 
@@ -71,7 +71,15 @@ export CUA_OPERATOR_TOKEN='choose-a-local-token'
 export CUA_PROVIDER_ENABLED=false
 ```
 
-The validation account value must be a savings account belonging to the server-only validation principal and should be read from the local seed manifest without echoing it. Do not put credential or account values in `CUA_PRINCIPALS_JSON`, committed files, URLs, or shell history. To enable live discovery, configure a server-owned provider model and credential explicitly; no provider credential is required for the offline test path and none was used for this release state.
+The validation account value must be a savings account belonging to the server-only validation principal and should be read from the local seed manifest without echoing it. Do not put credential or account values in `CUA_PRINCIPALS_JSON`, committed files, URLs, or shell history. To enable live discovery, configure the server-owned provider settings and put the credential in the process environment or a secret manager; do not commit or print it:
+
+```sh
+export CUA_PROVIDER_ENABLED=true
+export CUA_PROVIDER_MODEL=<server-approved-model-id>
+export OPENAI_API_KEY=<secret-in-the-process-environment>
+```
+
+The provider path is opt-in and unverified in this checkout. The discovery loop is constrained by the ParaBank profile, typed action space, policy, and current safe observation; it cannot invent arbitrary browser operations. The capability compiler also requires human-authored blueprint metadata, including the reviewer-added overview anchor and declared membership, extraction, and final verification checkpoints. The V2 test uses a scripted offline decision backend and therefore does not count as provider-backed V1 discovery.
 
 Start the service and open the page at `http://127.0.0.1:8765/`:
 
@@ -80,6 +88,8 @@ Start the service and open the page at `http://127.0.0.1:8765/`:
 ```
 
 If `CUA_OPERATOR_TOKEN` is absent, `cua serve` generates one and prints it once to stderr. Enter that token in the page's in-memory token field. The page can prepare a session, start discovery when a provider is configured, refresh and inspect draft revisions, validate and approve a revision, replay an approved revision with a new account binding, poll safe status, and explicitly request the protected result. The page does not use `localStorage`.
+
+For the unverified headed-browser takeover path, set `CUA_BROWSER_HEADLESS=false` before `cua serve`. Prepare a session and start a run with an approved capability. When the run displays a safe blocker and enters `WAITING_FOR_HUMAN`, inspect the same headed page, use **Claim**, perform only the requested human action, and use **Resume**. Resume rechecks the original principal, authentication generation, page, target origin, and current readiness before replay continues; a wrong-principal login or changed page is expected to keep the run paused or abort it. The browser-backed procedure has not been performed for V9.
 
 ## CLI
 
@@ -109,8 +119,18 @@ No live discovery is claimed without a provider. The offline path exercises type
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q
 ```
 
-Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. The committed `artifacts/index.json` remains empty because no live provider discovery has produced a releasable capability. `evidence/index.json` records the case-specific V2 native loopback replay and V11 clean-checkout evidence; neither entry is a live provider artifact or a real-person takeover.
+Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. The committed `artifacts/index.json` remains empty because no live provider discovery has produced a releasable capability. `evidence/index.json` records the case-specific V2 native loopback replay and a partial V11 clean-checkout diagnostic; neither entry is a live provider artifact or a real-person takeover.
+
+The shortest no-key replay check is the offline model-free suite:
+
+```sh
+unset OPENAI_API_KEY
+export CUA_PROVIDER_ENABLED=false
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider tests/test_replay.py
+```
+
+This does not create an approved artifact or prove native V3/V11. A native no-key replay requires a separately approved real artifact and a clean-checkout run; that evidence is still missing. The shortest live-discovery attempt is `CUA_PROVIDER_ENABLED=true CUA_PROVIDER_MODEL=<server-approved-model-id> OPENAI_API_KEY=<secret-in-environment> .venv/bin/cua serve`, followed by Prepare and Discover in the operation page. It remains unverified and no provider call was made for this release.
 
 ## Status and scope
 
-The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 and V11 have matching, fingerprinted release evidence; V1, V3–V10, and V12 remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. There is no public repository publication or email delivery from this checkout.
+The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 has matching fingerprinted evidence; V11 remains `NOT_RUN` because its clean-checkout result is diagnostic only. V1, V3–V10, and V12 also remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. Repository publication and visibility are external distribution state and do not count as V1–V12 acceptance evidence.

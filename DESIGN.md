@@ -25,7 +25,7 @@ Use the suggested layout in Spec §12.2 as the starting boundary. The runtime mu
 
 ## Target pin
 
-Use the original Parasoft ParaBank repository at immutable commit ee82474be5f58bea3ddc8be0fd831072b00201cb. The moving selenium-demo-baseline tag is not the selected pin. The upstream build path uses Maven and deploys the resulting WAR to Tomcat; upstream recommends Java 17 and Tomcat 10.1. A native browser smoke is reported passing on this host; end-to-end discovery, artifact qualification, and approved replay remain unrun. See PROGRESS.md.
+Use the original Parasoft ParaBank repository at immutable commit ee82474be5f58bea3ddc8be0fd831072b00201cb. The moving selenium-demo-baseline tag is not the selected pin. The upstream build path uses Maven and deploys the resulting WAR to Tomcat; upstream recommends Java 17 and Tomcat 10.1. A native browser smoke and the V2 scripted offline-backend loopback replay are recorded; provider-backed discovery, a checked-in artifact, and human takeover remain unrun. See PROGRESS.md.
 
 Pinned native DOM differences are mapped without changing the target: the overview heading is `Balance*` (footnote marker), and the Available Balance value row is labeled `Available:`. The profile consumes those exact native labels while exposing the stable business field `PROFILE_AVAILABLE_BALANCE`.
 
@@ -38,13 +38,15 @@ The initial mapping above is now backed by these concrete boundaries:
 | Boundary | Current implementation | Release caveat |
 |---|---|---|
 | Application composition | src/cua/application/config.py, service.py, oracle.py | cua serve composes one service from server-owned environment metadata; live provider discovery remains opt-in and was not used. |
-| HTTP and operator page | src/cua/web/app.py | Static UI supports prepare, discovery submission, capability inspect/validate/approve, approved replay, status polling, and explicit result reads. Handoff controls are not wired to the application service. |
+| HTTP and operator page | src/cua/web/app.py | Static UI supports prepare, discovery submission, capability inspect/validate/approve, approved replay, status polling, explicit result reads, and intervention claim/resume/abort. Browser-backed takeover evidence remains pending. |
 | CLI | src/cua/cli.py, src/cua/__main__.py | Client commands use the persistent HTTP service; only cua serve imports the composition layer. Account and goal prompts are memory-only process inputs. |
 | Native testbed and oracle | testbed/, testbed/fixtures/ | Testbed is isolated from runtime imports. Generated manifests and target processes are local; no live capability artifact is checked in. |
-| Safe release evidence | artifacts/, evidence/, scripts/verify_release.py | The indexes are intentionally empty until a real trace, qualification, and approved replay produce evidence. |
+| Safe release evidence | artifacts/, evidence/, scripts/verify_release.py | `artifacts/index.json` remains empty; `evidence/index.json` records V2 scripted native-loopback facts and a partial V11 clean-checkout diagnostic. |
 
 The native profile records two pinned DOM facts discovered from the upstream page: overview uses Balance*, and detail uses the exact Available: label inside #accountDetails > table. These are profile mappings, not target changes. The supported runtime contract is one Savings-balance capability, with typed CLICK/EXTRACT/ASSERT/WAIT/VERIFY behavior and bounded recovery.
 
+Discovery is profile-guided and bounded: a decision backend may choose only typed actions exposed by the current safe observation, while policy, target resolution, and the actor-owned gateway authorize every browser effect. Capability formation also contains human-authored blueprint metadata, including the reviewer-added overview anchor and declared membership, extraction, and final verification checkpoints. The V2 loopback record uses an injected scripted backend and does not establish provider-backed V1 discovery.
+
 Qualification compares a composite runtime fingerprint covering executable Python source, `pyproject.toml`, `uv.lock`, and the Python implementation major/minor marker, plus separate parser/condition/profile hashes. Browser version and target revision remain separate qualification pins. The release verification fingerprint additionally covers testbed Python sources; dependency or native qualification changes therefore require a fresh release check.
 
-The verification entrypoint preserves NOT_RUN for every unsupported V1–V12 case until a case-specific fingerprinted evidence manifest exists. The current evidence promotes only V2 and V11; offline contract test results appear separately in its JSON output and do not create a live artifact or alter unrelated statuses.
+The verification entrypoint preserves NOT_RUN for every unsupported V1–V12 case until a case-specific fingerprinted evidence manifest exists. The current evidence promotes V2 only. V11's clean-checkout record is a partial diagnostic and remains NOT_RUN until native no-model replay runs from a clean checkout with an approved real artifact. Offline contract test results appear separately in its JSON output and do not create a live artifact or alter unrelated statuses.
