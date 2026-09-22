@@ -4,6 +4,9 @@ from pathlib import Path
 import subprocess
 import sys
 
+from scripts import review_native_bundle
+from tests.test_native_codex_lifecycle import _successful_native_review_result
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -308,6 +311,45 @@ def test_complete_v11_requires_native_no_model_replay_and_approved_artifact(monk
         entry for entry in evidence["entries"] if entry["case_id"] != "V11"
     ] + [v11]
     monkeypatch.setattr(verifier, "_release_evidence", lambda root: evidence)
+
+    monkeypatch.setattr(
+        review_native_bundle,
+        "_git_metadata",
+        lambda: ("5ab604b4c12a8d151d28691a747ae76057088e26", True),
+    )
+    monkeypatch.setattr(
+        review_native_bundle,
+        "_source_fingerprint",
+        lambda: verifier.source_fingerprint(ROOT),
+    )
+    review = review_native_bundle._build_evidence(
+        ROOT / "artifacts/get_savings_balance-1.0.0.json",
+        _successful_native_review_result(),
+    )
+    review_path = ROOT / "evidence/v11_native_review.json"
+    original_safe_path = verifier._safe_release_path
+    original_read = verifier._read_canonical_json
+    review_bytes = json.dumps(
+        review,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        verifier,
+        "_safe_release_path",
+        lambda root, relative: review_path
+        if relative == "evidence/v11_native_review.json"
+        else original_safe_path(root, relative),
+    )
+    monkeypatch.setattr(
+        verifier,
+        "_read_canonical_json",
+        lambda path: (review_bytes, review)
+        if path == review_path
+        else original_read(path),
+    )
+    v11["review_evidence_path"] = "evidence/v11_native_review.json"
 
     report = verifier.build_report(ROOT, run_tests=False)
 

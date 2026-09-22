@@ -233,6 +233,8 @@ def _case_evidence_is_current(
         return False
     if case_id == "V1":
         return _validate_v1(evidence, current_source_fingerprint, root=root)
+    if case_id == "V11":
+        return _validate_v11(evidence, current_source_fingerprint, root=root)
     return validator(evidence, current_source_fingerprint)
 
 
@@ -683,7 +685,121 @@ def _validate_v10(evidence: Mapping[str, Any], source_fingerprint: str) -> bool:
     )
 
 
-def _validate_v11(evidence: Mapping[str, Any], source_fingerprint: str) -> bool:
+def _validate_v11_review_file(
+    evidence: Mapping[str, Any],
+    source_fingerprint: str,
+    *,
+    root: Path,
+) -> bool:
+    review_path = _safe_release_path(root, evidence.get("review_evidence_path"))
+    loaded = _read_canonical_json(review_path) if review_path is not None else None
+    review = loaded[1] if loaded is not None else None
+    if not isinstance(review, Mapping):
+        return False
+    artifact = review.get("approved_artifact")
+    target = review.get("native_target")
+    qualification = review.get("qualification")
+    replay = review.get("no_model_replay")
+    artifact_path = (
+        _safe_release_path(root, artifact.get("path"))
+        if isinstance(artifact, Mapping)
+        else None
+    )
+    artifact_loaded = (
+        _read_canonical_json(artifact_path) if artifact_path is not None else None
+    )
+    artifact_digest = artifact.get("digest") if isinstance(artifact, Mapping) else None
+    artifact_file_digest = (
+        f"sha256:{hashlib.sha256(artifact_loaded[0]).hexdigest()}"
+        if artifact_loaded is not None
+        else None
+    )
+    current_runtime = runtime_fingerprint(root)
+    recorded_runtime = (
+        qualification.get("runtime_fingerprint")
+        if isinstance(qualification, Mapping)
+        else None
+    )
+    return (
+        _common_evidence_is_current(
+            review,
+            case_id="V11",
+            source_fingerprint=source_fingerprint,
+            evidence_type="clean_checkout",
+        )
+        and isinstance(review.get("checkout"), Mapping)
+        and review["checkout"].get("clean_worktree") is True
+        and review["checkout"].get("development_state") == "not_used"
+        and review["checkout"].get("lockfile") == "uv.lock"
+        and review["checkout"].get("lockfile_sha256")
+        == hashlib.sha256((root / "uv.lock").read_bytes()).hexdigest()
+        and isinstance(target, Mapping)
+        and target.get("prepared") is True
+        and target.get("loopback") is True
+        and target.get("pinned_revision")
+        == "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+        and _nonempty_string(target.get("browser_version"))
+        and target.get("provider_credentials") == "unset"
+        and isinstance(artifact, Mapping)
+        and artifact.get("approved") is True
+        and artifact.get("approval_scope") == "temporary_registry"
+        and artifact.get("fingerprint_checked") is True
+        and artifact.get("sidecar_committed") is False
+        and artifact.get("lifecycle") == "DRAFT"
+        and artifact_path is not None
+        and artifact_path.relative_to(root.resolve()).as_posix()
+        == "artifacts/get_savings_balance-1.0.0.json"
+        and artifact.get("reference") == "capability/get_savings_balance@1.0.0"
+        and isinstance(artifact_digest, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest, re.ASCII)
+        and artifact_file_digest == artifact_digest
+        and isinstance(qualification, Mapping)
+        and isinstance(recorded_runtime, Mapping)
+        and current_runtime.get("status") == "AVAILABLE"
+        and all(
+            recorded_runtime.get(field) == current_runtime.get(field)
+            for field in (
+                "source_sha256",
+                "parser_sha256",
+                "condition_sha256",
+                "profile_sha256",
+            )
+        )
+        and qualification.get("bundle_digest") == artifact_digest
+        and qualification.get("target_revision")
+        == "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+        and qualification.get("replay_passed") is True
+        and qualification.get("independent_oracle_passed") is True
+        and isinstance(replay, Mapping)
+        and replay.get("command")
+        == "CUA_NATIVE_REVIEW=1 .venv/bin/python -B scripts/review_native_bundle.py --artifact artifacts/get_savings_balance-1.0.0.json"
+        and replay.get("artifact_reference") == artifact.get("reference")
+        and replay.get("artifact_digest") == artifact_digest
+        and replay.get("model_calls") == 0
+        and isinstance(replay.get("validation"), Mapping)
+        and replay["validation"].get("principal") == "beta"
+        and replay["validation"].get("status") == "SUCCESS"
+        and replay["validation"].get("independent_oracle_match") is True
+        and isinstance(replay.get("approval"), Mapping)
+        and replay["approval"].get("status") == "APPROVED"
+        and replay["approval"].get("scope") == "temporary_registry"
+        and replay["approval"].get("fingerprint_checked") is True
+        and replay.get("replay_counts") == {"delta": 1, "gamma": 1}
+        and isinstance(replay.get("result"), Mapping)
+        and replay["result"].get("passed") is True
+        and replay["result"].get("exit_code") == 0
+        and replay.get("provider_calls") == 0
+        and replay.get("credentials") == "removed"
+        and review.get("independent_oracle_match") is True
+    )
+
+
+def _validate_v11(
+    evidence: Mapping[str, Any],
+    source_fingerprint: str,
+    *,
+    root: Path = ROOT,
+) -> bool:
     commands = evidence.get("commands")
     result = evidence.get("result")
     checkout = evidence.get("checkout")
@@ -742,6 +858,7 @@ def _validate_v11(evidence: Mapping[str, Any], source_fingerprint: str) -> bool:
         and no_model_replay.get("provider_calls") == 0
         and no_model_replay.get("credentials") == "removed"
         and evidence.get("independent_oracle_match") is True
+        and _validate_v11_review_file(evidence, source_fingerprint, root=root)
     )
 
 
