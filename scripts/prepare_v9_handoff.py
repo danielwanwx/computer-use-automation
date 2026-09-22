@@ -132,6 +132,13 @@ async def _wait_for_server(origin: str) -> None:
     raise RuntimeError("operator service did not start on loopback")
 
 
+async def _prepare_target_session(service: ApplicationService):
+    """Return the private browser handle behind the public session view."""
+    session_view = await service.prepare_session(_PRINCIPAL)
+    managed = await service._sessions.get(session_view.session_id)
+    return managed.handle, managed
+
+
 async def _prepare(args: argparse.Namespace) -> int:
     # The testbed functions are intentionally called before any runtime session
     # is created, so the exclusive seed lock cannot race the shared session lock.
@@ -176,8 +183,7 @@ async def _prepare(args: argparse.Namespace) -> int:
     evidence_path = _safe_evidence_path(data_root)
     try:
         await _wait_for_server(config.operator_origin)
-        handle = await service.prepare_session(_PRINCIPAL)
-        managed = await service._sessions.get(handle.session_id)
+        handle, managed = await _prepare_target_session(service)
         await managed.page.goto(
             config.target_origin + _BLOCKER_PATH,
             wait_until="domcontentloaded",
@@ -223,22 +229,30 @@ async def _prepare(args: argparse.Namespace) -> int:
             )
 
         async def run(context):
-            trusted = TrustedHandoffContext(
-                actor=(await service._sessions.get_state(context.session_id)).actor,
-                reconciler=reconcile,
-                page_id=handle.page_id,
-                deadline_monotonic=context.deadline_monotonic or time.monotonic(),
-            )
-            result = await service._handoff_coordinator.require_human(
-                HandoffRequest(
-                    run_id=context.run_alias,
-                    session_id=context.session_id,
-                    step_id=_STEP_ID,
-                    reason_code=SafeReasonCode.UNKNOWN_BLOCKER,
-                    ownership_epoch=context.expected_epoch,
-                ),
-                trusted=trusted,
-            )
+            try:
+                trusted = TrustedHandoffContext(
+                    actor=(await service._sessions.get_state(context.session_id)).actor,
+                    reconciler=reconcile,
+                    page_id=handle.page_id,
+                    deadline_monotonic=context.deadline_monotonic or time.monotonic(),
+                )
+                result = await service._handoff_coordinator.require_human(
+                    HandoffRequest(
+                        run_id=context.run_alias,
+                        session_id=context.session_id,
+                        step_id=_STEP_ID,
+                        reason_code=SafeReasonCode.UNKNOWN_BLOCKER,
+                        ownership_epoch=context.expected_epoch,
+                    ),
+                    trusted=trusted,
+                )
+            except Exception as error:
+                print(
+                    f"V9 preparation runner failed: {type(error).__name__}: {error}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                raise
             if result is not None and result.state is HandoffState.RUNNING:
                 _write_safe_evidence(
                     evidence_path,
@@ -289,6 +303,13 @@ async def _prepare(args: argparse.Namespace) -> int:
         )
         interventions = ()
         while not interventions:
+            record = service._runs.get(run_handle.run_id)
+            if record is not None and record.task is not None and record.task.done():
+                await record.task
+                raise RuntimeError(
+                    "V9 preparation run terminated before WAITING_FOR_HUMAN "
+                    f"(state={record.state.value}, outcome={record.outcome_code.value if record.outcome_code else 'UNKNOWN'})"
+                )
             interventions = await service.list_interventions(
                 operator_ref="local_operator",
                 session_id=handle.session_id,
