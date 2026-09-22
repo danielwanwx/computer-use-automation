@@ -129,6 +129,7 @@
         "uv sync --locked",
         "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q"
       ],
+      "review_evidence_path": "evidence/v11-clean-checkout.json",
       "result": {
         "setup_exit_code": 0,
         "test_exit_code": 0,
