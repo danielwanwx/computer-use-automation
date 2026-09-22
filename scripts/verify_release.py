@@ -94,7 +94,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "real human takeover",
         "required": "a person operates the same browser session and resumes successfully",
         "status": "NOT_RUN",
-        "reason": "Manual intervention was not performed.",
+        "reason": "A matching manual same-session evidence record is required for promotion.",
         "command": "manual same-session operator test",
     },
     {

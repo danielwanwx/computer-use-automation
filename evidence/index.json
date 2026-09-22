@@ -74,9 +74,9 @@
       "status": "PASS",
       "evidence_type": "native_loopback",
       "recorded_on": "2026-09-21",
-      "repository_commit": "d42b067e0639c3fa05e4470c95e9bc12593fef4d",
+      "repository_commit": "7bb23278c5a25bfd485185bf9988ddedbfca78bc",
       "repository_state": "working_tree_fingerprint_bound",
-      "source_fingerprint": "441b103b80e1d87e5239452d8274aa8f44c50458740adb6449903d26a8ed9ec3",
+      "source_fingerprint": "c62aef516cdf356dd9432c84a6c3f02ea46fe8407c08653486fd0355f0fe51b8",
       "target": {
         "kind": "parabank",
         "origin": "http://127.0.0.1:8080/parabank",
@@ -91,7 +91,7 @@
       "test": {
         "nodeid": "tests/test_discovery_native.py::test_native_offline_discovery_validation_approval_and_cross_client_replay",
         "passed": true,
-        "duration_seconds": 24.98
+        "duration_seconds": 26.36
       },
       "replay": {
         "discovery": "SUCCESS",
@@ -111,6 +111,39 @@
         "private_values_persisted": false
       },
       "source": "pinned loopback ParaBank testbed with synthetic principals; no live provider discovery"
+    },
+    {
+      "case_id": "V9",
+      "status": "PASS",
+      "acceptance_status": "PASS",
+      "evidence_type": "manual_same_session_takeover",
+      "recorded_on": "2026-09-22",
+      "source_fingerprint": "c62aef516cdf356dd9432c84a6c3f02ea46fe8407c08653486fd0355f0fe51b8",
+      "operator": {
+        "person_performed": true,
+        "attestation": "explicit_completion"
+      },
+      "criterion": {
+        "same_session": true,
+        "resumed_successfully": true
+      },
+      "browser": {
+        "headed": true,
+        "same_session_required": true
+      },
+      "intervention": {
+        "run_id": "run_9deae721d691bee5",
+        "state": "RUNNING",
+        "disposition": "NEXT",
+        "reason": "AUTHORIZED",
+        "route_verified": true,
+        "resumed": true
+      },
+      "target": {
+        "loopback": true,
+        "upstream_revision": "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+      },
+      "source": "Explicit human completion attestation with redacted headed same-session handoff metadata."
     },
     {
       "case_id": "V11",
@@ -145,5 +178,5 @@
       "source": "fresh checkout setup and offline suite diagnostic; this does not prove native no-model replay from an approved real artifact"
     }
   ],
-  "note": "V1 records an opt-in Codex saved-login lifecycle diagnostic whose temporary DRAFT artifact is intentionally rejected for release acceptance. V2 records a current-source native loopback run with an injected offline scripted backend. V11 records only a clean-checkout/offline diagnostic and remains NOT_RUN until native no-model replay uses an approved real artifact. Real-person takeover and browser end-to-end acceptance remain unrun."
+  "note": "V1 records an opt-in Codex saved-login lifecycle diagnostic whose temporary DRAFT artifact is intentionally rejected for release acceptance. V2 records a fingerprint-bound native loopback run with an injected offline scripted backend. V9 records a real-person headed same-session takeover from an explicit completion attestation and value-safe handoff metadata. V11 records only a clean-checkout/offline diagnostic and remains NOT_RUN until native no-model replay uses an approved real artifact. Browser end-to-end acceptance remains unrun."
 }

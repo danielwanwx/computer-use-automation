@@ -54,13 +54,14 @@ def test_readme_contains_reproducible_setup_target_and_entrypoints():
         "scripts/verify_release.py",
     ):
         assert command in text
-    assert "V2 has a current-source native loopback record" in text
+    assert "V2 has a matching current-source native loopback record" in text
+    assert "V9 has a matching current-source headed same-session evidence record" in text
     assert "V11 remains `NOT_RUN`" in text
     assert "localStorage" in text
     assert "CUA_PROVIDER_MODEL=codex-cli" not in text
 
 
-def test_verification_entrypoint_keeps_unsupported_cases_unrun():
+def test_verification_entrypoint_promotes_v9_and_keeps_unsupported_cases_unrun():
     result = subprocess.run(
         [sys.executable, "scripts/verify_release.py", "--skip-tests"],
         cwd=ROOT,
@@ -73,9 +74,10 @@ def test_verification_entrypoint_keeps_unsupported_cases_unrun():
     assert {case["id"] for case in report["cases"]} == {f"V{i}" for i in range(1, 13)}
     statuses = {case["id"]: case["status"] for case in report["cases"]}
     assert statuses["V2"] == "PASS"
+    assert statuses["V9"] == "PASS"
     # A partial clean-checkout diagnostic is deliberately not evidence for V11.
     assert statuses["V11"] == "NOT_RUN"
-    assert {case_id for case_id, status in statuses.items() if status == "NOT_RUN"} == {
+    expected_not_run = {
         "V1",
         "V3",
         "V4",
@@ -83,12 +85,18 @@ def test_verification_entrypoint_keeps_unsupported_cases_unrun():
         "V6",
         "V7",
         "V8",
-        "V9",
         "V10",
         "V11",
         "V12",
     }
-    assert report["summary"] == {"fail": 0, "not_run": 11, "pass": 1}
+    assert {
+        case_id for case_id, status in statuses.items() if status == "NOT_RUN"
+    } == expected_not_run
+    assert report["summary"] == {
+        "fail": 0,
+        "not_run": len(expected_not_run),
+        "pass": 12 - len(expected_not_run),
+    }
     assert report["source_fingerprint"]
     assert report["commands"]["offline_tests"]
     assert report["fixture_paths"]
@@ -102,11 +110,18 @@ def test_release_indexes_do_not_fabricate_capabilities_or_live_artifacts():
     draft = artifacts["entries"][0]
     assert draft["lifecycle"] == "DRAFT"
     assert draft["approval"]["sidecar_committed"] is False
-    assert {entry["case_id"] for entry in evidence["entries"]} == {"V1", "V2", "V11"}
+    assert {entry["case_id"] for entry in evidence["entries"]} == {"V1", "V2", "V9", "V11"}
     by_case = {entry["case_id"]: entry for entry in evidence["entries"]}
     assert by_case["V1"]["status"] == "PARTIAL_DIAGNOSTIC"
     assert by_case["V1"]["acceptance_status"] == "NOT_RUN"
     assert by_case["V2"]["status"] == "PASS"
+    assert by_case["V9"]["status"] == "PASS"
+    assert by_case["V9"]["acceptance_status"] == "PASS"
+    assert by_case["V9"]["operator"]["person_performed"] is True
+    assert by_case["V9"]["criterion"] == {
+        "same_session": True,
+        "resumed_successfully": True,
+    }
     assert by_case["V11"]["status"] == "PARTIAL_DIAGNOSTIC"
     assert by_case["V11"]["acceptance_status"] == "NOT_RUN"
     assert artifacts["status"] == "LIVE_CODEX_DRAFT_AVAILABLE"
@@ -185,13 +200,38 @@ def test_malformed_evidence_is_not_promoted(monkeypatch):
     assert next(case for case in strict["cases"] if case["id"] == "V2")["status"] == "BLOCKED"
 
 
-def test_complete_case_specific_evidence_is_promoted():
+def test_v9_manual_same_session_evidence_is_promoted_and_value_safe():
     verifier = _load_verifier()
     report = verifier.build_report(ROOT, run_tests=False)
 
-    v2 = next(case for case in report["cases"] if case["id"] == "V2")
-    assert v2["status"] == "PASS"
-    assert v2["evidence"]["validation"] == "PASS"
+    v9 = next(case for case in report["cases"] if case["id"] == "V9")
+    entry = next(
+        entry
+        for entry in json.loads((ROOT / "evidence/index.json").read_text())["entries"]
+        if entry["case_id"] == "V9"
+    )
+
+    assert v9["status"] == "PASS"
+    assert v9["evidence"]["validation"] == "PASS"
+    assert entry["source_fingerprint"] == report["source_fingerprint"]
+    serialized = json.dumps(entry, sort_keys=True).lower()
+    for forbidden in ("credential", "password", "token", "account_id", "balance", "goal"):
+        assert forbidden not in serialized
+
+
+def test_v9_stale_fingerprint_is_not_promoted(monkeypatch):
+    verifier = _load_verifier()
+    evidence = json.loads((ROOT / "evidence/index.json").read_text(encoding="utf-8"))
+    stale = json.loads(json.dumps(evidence))
+    v9 = next(entry for entry in stale["entries"] if entry["case_id"] == "V9")
+    v9["source_fingerprint"] = "stale-source"
+    monkeypatch.setattr(verifier, "_release_evidence", lambda root: stale)
+
+    report = verifier.build_report(ROOT, run_tests=False)
+
+    rejected = next(case for case in report["cases"] if case["id"] == "V9")
+    assert rejected["status"] == "NOT_RUN"
+    assert rejected["evidence"]["validation"] == "REJECTED"
 
 
 def test_v1_requires_committed_approved_artifact_and_target_provenance(monkeypatch):

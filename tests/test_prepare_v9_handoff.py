@@ -4,7 +4,12 @@ import asyncio
 from types import SimpleNamespace
 
 from cua.sessions import SessionHandle
-from scripts.prepare_v9_handoff import _prepare_target_session
+from scripts.prepare_v9_handoff import _BLOCKER_PATH, _prepare_target_session
+
+
+def test_blocker_path_is_a_param_free_authenticated_route():
+    assert _BLOCKER_PATH == "/transfer.htm"
+    assert _BLOCKER_PATH != "/activity.htm"
 
 
 def test_prepare_target_session_uses_private_handle_behind_public_view():

@@ -46,7 +46,10 @@ from testbed.seed import seed
 
 _DEFAULT_DATA_ROOT = Path("runtime/v9-handoff")
 _DEFAULT_OPERATOR_PORT = 8765
-_BLOCKER_PATH = "/activity.htm"
+# ``activity.htm`` requires an account ``id`` query parameter.  The transfer
+# form is authenticated, has no required query parameters, and includes the
+# Accounts Overview link used by the manual handoff.
+_BLOCKER_PATH = "/transfer.htm"
 _STEP_ID = "manual_handoff_probe"
 _PRINCIPAL = "alpha"
 

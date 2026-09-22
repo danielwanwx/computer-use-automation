@@ -419,13 +419,37 @@ function scheduleInterventionPoll() {
   if (interventionTimer !== null) return;
   interventionTimer = setTimeout(() => { interventionTimer = null; void refreshInterventions(); }, 2000);
 }
+function selectIntervention(value) {
+  const items = Array.isArray(value) ? value : [];
+  if (runId) {
+    const current = items.find(item => item.run_id === runId) || null;
+    if (current && !sessionId && typeof current.session_id === 'string' && current.session_id) {
+      sessionId = current.session_id;
+      $('#session').textContent = sessionId;
+    }
+    return current;
+  }
+  const candidates = items.filter(item =>
+    item && ACTIVE_INTERVENTION_STATES.has(item.state) &&
+    typeof item.run_id === 'string' && item.run_id &&
+    typeof item.session_id === 'string' && item.session_id
+  );
+  if (candidates.length !== 1) return null;
+  runId = candidates[0].run_id;
+  sessionId = candidates[0].session_id;
+  $('#session').textContent = sessionId;
+  return candidates[0];
+}
 async function refreshInterventions() {
   const response = await api('/api/interventions');
   const value = await response.json();
-  const current = Array.isArray(value) ? value.find(item => item.run_id === runId) : null;
+  const current = selectIntervention(value);
   showIntervention(current || null);
   if (current && ['WAITING_FOR_HUMAN', 'HUMAN_CLAIMED', 'RESUMING'].includes(current.state)) scheduleInterventionPoll();
 }
+$('#token').addEventListener('change', () => {
+  if ($('#token').value.trim()) void refreshInterventions();
+});
 async function interventionAction(action) {
   if (!intervention) return;
   const response = await api(`/api/interventions/${encodeURIComponent(intervention.intervention_id)}/${action}`, {

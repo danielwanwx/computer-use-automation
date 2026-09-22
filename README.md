@@ -1,6 +1,6 @@
 # Computer-use automation
 
-This repository contains a local, reviewable UI capability runtime for the single capability `get_savings_balance(account_id)`. The target is the original Parasoft ParaBank application at immutable commit `ee82474be5f58bea3ddc8be0fd831072b00201cb`; the runtime does not replace or modify the target application. The current checkout has a deterministic kernel, native target testbed, safe application boundary, CLI, and release checks. An opt-in Codex saved-login lifecycle produced a value-safe temporary DRAFT and native replay diagnostics; V1 remains `NOT_RUN` because release approval and evidence promotion are incomplete. Real-person handoff remains explicitly unrun.
+This repository contains a local, reviewable UI capability runtime for the single capability `get_savings_balance(account_id)`. The target is the original Parasoft ParaBank application at immutable commit `ee82474be5f58bea3ddc8be0fd831072b00201cb`; the runtime does not replace or modify the target application. The current checkout has a deterministic kernel, native target testbed, safe application boundary, CLI, and release checks. An opt-in Codex saved-login lifecycle produced a value-safe temporary DRAFT and native replay diagnostics; V1 remains `NOT_RUN` because release approval and evidence promotion are incomplete. V9 has a matching current-source headed same-session evidence record from a real-person rehearsal.
 
 ## Setup
 
@@ -21,7 +21,7 @@ The verification entrypoint runs the offline checks and prints the complete acce
 .venv/bin/python scripts/verify_release.py
 ```
 
-It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. V1 has a saved-login Codex lifecycle diagnostic whose temporary approval is intentionally rejected for release acceptance. V2 has a current-source native loopback record using an injected offline scripted backend. V11 remains `NOT_RUN`: its clean-checkout record is a partial diagnostic until native no-model replay runs from a clean checkout with an approved real artifact.
+It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. V1 has a saved-login Codex lifecycle diagnostic whose temporary approval is intentionally rejected for release acceptance. V2 has a matching current-source native loopback record using an injected offline scripted backend. V9 has a matching current-source headed same-session evidence record from a real-person rehearsal. V11 remains `NOT_RUN`: its clean-checkout record is a partial diagnostic until native no-model replay runs from a clean checkout with an approved real artifact.
 
 ## Native ParaBank testbed
 
@@ -102,7 +102,7 @@ Start the service and open the page at `http://127.0.0.1:8765/`:
 
 If `CUA_OPERATOR_TOKEN` is absent, `cua serve` generates one and prints it once to stderr. Enter that token in the page's in-memory token field. The page can prepare a session, start discovery when a provider is configured, refresh and inspect draft revisions, validate and approve a revision, replay an approved revision with a new account binding, poll safe status, and explicitly request the protected result. The page does not use `localStorage`.
 
-For the unverified headed-browser takeover path, set `CUA_BROWSER_HEADLESS=false` before `cua serve`. Prepare a session and start a run with an approved capability. When the run displays a safe blocker and enters `WAITING_FOR_HUMAN`, inspect the same headed page, use **Claim**, perform only the requested human action, and use **Resume**. Resume rechecks the original principal, authentication generation, page, target origin, and current readiness before replay continues; a wrong-principal login or changed page is expected to keep the run paused or abort it. The browser-backed procedure has not been performed for V9.
+For the headed-browser takeover rehearsal, set `CUA_BROWSER_HEADLESS=false` before `cua serve`. Prepare a session and start a run with an approved capability. When the run displays a safe blocker and enters `WAITING_FOR_HUMAN`, inspect the same headed page, use **Claim**, perform only the requested human action, and use **Resume**. Resume rechecks the original principal, authentication generation, page, target origin, and current readiness before replay continues; a wrong-principal login or changed page is expected to keep the run paused or abort it. The recorded V9 rehearsal used the same headed browser session and resumed after route verification. Its release-safe entry retains only a completion attestation and structural run facts, never credentials, tokens, account values, or browser contents.
 
 ## CLI
 
@@ -132,7 +132,7 @@ The offline path exercises typed traces, registry validation, model-free replay,
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q
 ```
 
-Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. `artifacts/index.json` contains the value-safe DRAFT exported by the saved-login Codex diagnostic; its temporary approval sidecar is not committed, so it is not an approved release capability. `evidence/index.json` records the V1 diagnostic, current-source V2 native loopback replay, and partial V11 clean-checkout diagnostic. V9 remains a real-person takeover case and is unrun.
+Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. `artifacts/index.json` contains the value-safe DRAFT exported by the saved-login Codex diagnostic; its temporary approval sidecar is not committed, so it is not an approved release capability. `evidence/index.json` records the V1 diagnostic, current-source V2 native loopback replay, V9 headed same-session real-person takeover, and partial V11 clean-checkout diagnostic. V2 and V9 are passing acceptance cases.
 
 The shortest no-key replay check is the offline model-free suite:
 
@@ -154,4 +154,4 @@ It validates and replays the value-safe DRAFT through a fresh temporary registry
 
 ## Status and scope
 
-The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 has matching current-source fingerprinted evidence; V1 remains `NOT_RUN` because its saved-login result is only a temporary DRAFT diagnostic. V11 remains `NOT_RUN` because its clean-checkout result is diagnostic only. V3–V10 and V12 also remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. Repository publication and visibility are external distribution state and do not count as V1–V12 acceptance evidence.
+The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 and V9 have matching current-source evidence for their required native loopback and real-person takeover cases. V1 remains `NOT_RUN` because its saved-login result is only a temporary DRAFT diagnostic. V11 remains `NOT_RUN` because its clean-checkout result is diagnostic only. V3–V8, V10, and V12 remain `NOT_RUN`. The report separately records offline contract-check results and never promotes them to native/live acceptance. Repository publication and visibility are external distribution state and do not count as V1–V12 acceptance evidence.

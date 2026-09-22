@@ -434,3 +434,85 @@ if (calls.join(',') !== 'token,intervention-claim') throw new Error('normalizati
 """
     result = subprocess.run([node, "--eval", smoke], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
+
+
+def test_fresh_operator_discovers_one_prepared_intervention_after_token_entry():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+
+    html = TestClient(create_app(_FakeService(), operator_token="test-token")).get("/").text
+    script = html.split("<script>\n", 1)[1].split("\n</script>", 1)[0]
+    smoke = f"""
+import * as vm from 'node:vm';
+const elements = new Map();
+const requests = [];
+const timers = [];
+function element(id) {{
+  if (!elements.has(id)) elements.set(id, {{
+    id,
+    value: '',
+    textContent: '',
+    dataset: {{}},
+    disabled: false,
+    listeners: {{}},
+    addEventListener(name, handler) {{ this.listeners[name] = handler; }},
+    replaceChildren() {{}},
+    append() {{}},
+  }});
+  return elements.get(id);
+}}
+const statusPill = {{textContent: '', setAttribute() {{}}}};
+const context = {{
+  console,
+  Headers: class {{ constructor() {{ this.values = {{}}; }} set(name, value) {{ this.values[name] = value; }} }},
+  document: {{
+    getElementById: element,
+    querySelector() {{ return statusPill; }},
+    createElement() {{ return {{value: '', textContent: ''}}; }},
+    body: {{classList: {{toggle() {{}}}}}},
+  }},
+  fetch: (path, options) => {{
+    requests.push({{path, options}});
+    if (path === '/api/interventions') return {{ok: true, json: () => [{{
+      intervention_id: 'iv-prepared',
+      run_id: 'run-prepared',
+      session_id: 'session-prepared',
+      state: 'WAITING_FOR_HUMAN',
+      reason: 'POSTCONDITION_UNKNOWN',
+      epoch: 2,
+    }}]}};
+    if (path === '/api/runs/run-prepared/result') return {{ok: true, json: () => ({{state: 'WAITING_FOR_HUMAN'}})}};
+    throw new Error('unexpected request: ' + path);
+  }},
+  setTimeout: callback => {{ timers.push(callback); return timers.length; }},
+  clearTimeout: () => {{}},
+}};
+vm.runInNewContext({script!r} + '\\nthis.selectInterventionForTest = selectIntervention;', context);
+if (context.selectInterventionForTest([
+  {{run_id: 'run-one', session_id: 'session-one', state: 'WAITING_FOR_HUMAN'}},
+  {{run_id: 'run-two', session_id: 'session-two', state: 'WAITING_FOR_HUMAN'}},
+]) !== null) throw new Error('ambiguous interventions were adopted');
+element('token').value = 'test-token';
+if (!element('token').listeners.change) throw new Error('token entry handler missing');
+element('token').listeners.change();
+await new Promise(resolve => setImmediate(resolve));
+if (requests.length !== 1 || requests[0].path !== '/api/interventions') throw new Error('intervention discovery did not start');
+if (requests[0].options.headers.values.Authorization !== 'Bearer test-token') throw new Error('token was not sent for discovery');
+if (element('intervention-state').textContent !== 'WAITING_FOR_HUMAN · POSTCONDITION_UNKNOWN') throw new Error('prepared intervention not shown: ' + element('intervention-state').textContent + ' requests=' + requests.length);
+if (element('session').textContent !== 'session-prepared') throw new Error('session id was not shown');
+if (element('intervention-claim').disabled) throw new Error('claim action not enabled');
+element('read-result').onclick();
+await new Promise(resolve => setImmediate(resolve));
+const resultRequest = requests.find(request => request.path === '/api/runs/run-prepared/result');
+if (!resultRequest) throw new Error('run id was not adopted');
+if (resultRequest.options.headers.values['X-CUA-Session-ID'] !== 'session-prepared') throw new Error('session id was not adopted');
+if (context.localStorage) throw new Error('token persistence was introduced');
+"""
+    result = subprocess.run(
+        [node, "--input-type=module", "--eval", smoke],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
