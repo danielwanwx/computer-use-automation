@@ -47,4 +47,4 @@ The native profile records two pinned DOM facts discovered from the upstream pag
 
 Qualification compares a composite runtime fingerprint covering executable Python source, `pyproject.toml`, `uv.lock`, and the Python implementation major/minor marker, plus separate parser/condition/profile hashes. Browser version and target revision remain separate qualification pins. The release verification fingerprint additionally covers testbed Python sources; dependency or native qualification changes therefore require a fresh release check.
 
-The verification entrypoint preserves NOT_RUN for every V1–V12 status until a case-specific fingerprinted evidence manifest exists. Offline contract test results appear separately in its JSON output and do not create a live artifact or alter those statuses.
+The verification entrypoint preserves NOT_RUN for every unsupported V1–V12 case until a case-specific fingerprinted evidence manifest exists. The current evidence promotes only V2 and V11; offline contract test results appear separately in its JSON output and do not create a live artifact or alter unrelated statuses.

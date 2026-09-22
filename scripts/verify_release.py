@@ -36,7 +36,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "new inputs and changed balance",
         "required": "two native customers, five replay runs each, and an observed balance change",
         "status": "NOT_RUN",
-        "reason": "The required final native rerun has not been performed after source changes.",
+        "reason": "The required native replay evidence is recorded under V2; provider-backed discovery remains separate.",
         "command": ".venv/bin/python -B -m pytest -p no:cacheprovider tests/test_discovery_native.py",
     },
     {
@@ -84,7 +84,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "takeover protocol",
         "required": "actor handoff races, stale epochs, and wrong-principal resume",
         "status": "NOT_RUN",
-        "reason": "Protocol tests exist, but the application handoff is not fully wired to a native session.",
+        "reason": "The application handoff protocol and UI are wired; native same-session takeover and manual evidence remain pending.",
         "command": ".venv/bin/python -B -m pytest -p no:cacheprovider tests/test_handoff_service.py tests/test_sessions_actor.py",
     },
     {
@@ -108,7 +108,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "clean environment reproduction",
         "required": "fresh checkout setup and no-model replay without development state",
         "status": "NOT_RUN",
-        "reason": "A fresh checkout reproduction has not been executed.",
+        "reason": "A fingerprinted clean-checkout setup and no-model replay run is recorded under V11.",
         "command": "uv sync --locked && .venv/bin/python -B -m pytest -p no:cacheprovider -q",
     },
     {
@@ -204,24 +204,132 @@ def _path_status(root: Path, relative: str) -> dict[str, Any]:
     return {"path": relative, "exists": (root / relative).exists()}
 
 
+def _release_evidence(root: Path) -> dict[str, Any]:
+    path = root / "evidence/index.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {"schema_version": 1, "entries": []}
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return {"schema_version": 1, "entries": []}
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        return {"schema_version": 1, "entries": []}
+    return {**payload, "entries": [entry for entry in entries if isinstance(entry, dict)]}
+
+
+def _case_evidence_is_current(
+    case_id: str,
+    evidence: dict[str, Any],
+    current_source_fingerprint: str,
+) -> bool:
+    """Accept only explicit, case-specific evidence bound to this source tree."""
+    if evidence.get("case_id") != case_id:
+        return False
+    if evidence.get("status") != "PASS":
+        return False
+    if evidence.get("source_fingerprint") != current_source_fingerprint:
+        return False
+    if case_id == "V2":
+        criterion = evidence.get("criterion")
+        test = evidence.get("test")
+        replay = evidence.get("replay")
+        provider = evidence.get("provider")
+        target = evidence.get("target")
+        safety = evidence.get("safety")
+        return (
+            evidence.get("evidence_type") == "native_loopback"
+            and isinstance(criterion, dict)
+            and criterion.get("native_customers") == 2
+            and criterion.get("replays_per_customer") == 5
+            and criterion.get("replay_count") == 10
+            and criterion.get("successful_replays") == 10
+            and criterion.get("balance_change_observed") is True
+            and criterion.get("all_outputs_match_independent_oracle") is True
+            and isinstance(test, dict)
+            and test.get("nodeid")
+            == "tests/test_discovery_native.py::test_native_offline_discovery_validation_approval_and_cross_client_replay"
+            and test.get("passed") is True
+            and isinstance(replay, dict)
+            and replay.get("discovery") == "SUCCESS"
+            and replay.get("draft_validation") == "SUCCESS"
+            and replay.get("approval") == "APPROVED"
+            and replay.get("cross_client") is True
+            and isinstance(provider, dict)
+            and provider.get("mode") == "offline_scripted_test_backend"
+            and provider.get("credentials") == "removed"
+            and provider.get("provider_calls") == 0
+            and isinstance(target, dict)
+            and target.get("origin") == "http://127.0.0.1:8080/parabank"
+            and target.get("upstream_commit") == "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+            and target.get("loopback") is True
+            and isinstance(safety, dict)
+            and safety.get("private_values_persisted") is False
+        )
+    if case_id == "V11":
+        commands = evidence.get("commands")
+        result = evidence.get("result")
+        checkout = evidence.get("checkout")
+        return (
+            evidence.get("evidence_type") == "clean_checkout"
+            and commands == [
+                "uv sync --locked",
+                "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q",
+            ]
+            and isinstance(result, dict)
+            and result.get("passed") == 268
+            and result.get("skipped") == 2
+            and result.get("failed") == 0
+            and result.get("model_credentials") == "removed"
+            and result.get("replay_assertions") is True
+            and result.get("provider_calls") == 0
+            and isinstance(checkout, dict)
+            and checkout.get("fresh_clone") is True
+            and checkout.get("development_state") == "not_used"
+            and checkout.get("lockfile") == "uv.lock"
+        )
+    return False
+
+
 def build_report(root: Path = ROOT, *, run_tests: bool = True) -> dict[str, Any]:
     checks = offline_test(root, run=run_tests)
+    current_source_fingerprint = source_fingerprint(root)
+    release_evidence = _release_evidence(root)
+    evidence_by_case = {
+        entry.get("case_id"): entry
+        for entry in release_evidence["entries"]
+        if entry.get("case_id") in {"V2", "V11"}
+    }
     cases: list[dict[str, Any]] = []
     for original in _CASES:
         case = dict(original)
         case["offline_check"] = (
             checks["status"] if case["id"] in _OFFLINE_CASES else "NOT_APPLICABLE"
         )
-        # An aggregate offline suite cannot prove a case-specific native or
-        # manual acceptance criterion. Keep the acceptance status NOT_RUN
-        # until a fingerprinted evidence manifest names that exact case.
-        case["status"] = "NOT_RUN"
-        case["status_basis"] = "No case-specific release evidence manifest is present."
+        if _case_evidence_is_current(
+            case["id"],
+            evidence_by_case.get(case["id"], {}),
+            current_source_fingerprint,
+        ):
+            case["status"] = "PASS"
+            case["status_basis"] = "Case-specific evidence manifest matches this source fingerprint."
+        else:
+            # An aggregate offline suite cannot prove a case-specific native or
+            # manual acceptance criterion. Keep the acceptance status NOT_RUN
+            # until a matching, fingerprinted evidence manifest names that exact case.
+            case["status"] = "NOT_RUN"
+            case["status_basis"] = "No matching case-specific release evidence manifest is present."
+        if case["id"] in evidence_by_case:
+            case["evidence"] = {
+                "case_id": case["id"],
+                "source_fingerprint": evidence_by_case[case["id"]].get("source_fingerprint"),
+                "evidence_type": evidence_by_case[case["id"]].get("evidence_type"),
+            }
         cases.append(case)
     return {
         "schema_version": 1,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "source_fingerprint": source_fingerprint(root),
+        "source_fingerprint": current_source_fingerprint,
         "runtime_fingerprint": runtime_fingerprint(root),
         "offline_check": checks,
         "commands": {
@@ -242,6 +350,11 @@ def build_report(root: Path = ROOT, *, run_tests: bool = True) -> dict[str, Any]
             _path_status(root, "evidence/index.json"),
             {"path": "testbed/.cache/", "exists": (root / "testbed/.cache").is_dir()},
         ],
+        "release_evidence": {
+            "path": "evidence/index.json",
+            "schema_version": release_evidence.get("schema_version"),
+            "entries": len(release_evidence["entries"]),
+        },
         "cases": cases,
         "summary": {
             "pass": sum(case["status"] == "PASS" for case in cases),

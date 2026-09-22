@@ -21,7 +21,7 @@ The verification entrypoint runs the offline checks and prints the complete acce
 .venv/bin/python scripts/verify_release.py
 ```
 
-It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. `NOT_RUN` is retained for every live or manual case that has not actually been performed.
+It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. The current evidence records V2 and V11 as `PASS`; `NOT_RUN` is retained for every unsupported live or manual case.
 
 ## Native ParaBank testbed
 
@@ -109,8 +109,8 @@ No live discovery is claimed without a provider. The offline path exercises type
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q
 ```
 
-Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. A real browser run must produce its own capability digest and evidence before it can be described as validated or approved. The committed `artifacts/index.json` and `evidence/index.json` are empty release indexes for this reason.
+Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. The committed `artifacts/index.json` remains empty because no live provider discovery has produced a releasable capability. `evidence/index.json` records the case-specific V2 native loopback replay and V11 clean-checkout evidence; neither entry is a live provider artifact or a real-person takeover.
 
 ## Status and scope
 
-The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. All V1–V12 statuses remain `NOT_RUN` in this checkout; the report separately records offline contract-check results and never promotes them to native/live acceptance. There is no public repository publication or email delivery from this checkout.
+The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 and V11 have matching, fingerprinted release evidence; V1, V3–V10, and V12 remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. There is no public repository publication or email delivery from this checkout.

@@ -1,6 +1,77 @@
 {
   "schema_version": 1,
-  "status": "EMPTY_UNTIL_VERIFIED_RUN",
-  "entries": [],
-  "note": "No live capability qualification or approved replay evidence is included in this checkout."
+  "status": "PARTIAL_RELEASE_EVIDENCE",
+  "entries": [
+    {
+      "case_id": "V2",
+      "status": "PASS",
+      "evidence_type": "native_loopback",
+      "recorded_on": "2026-09-21",
+      "repository_commit": "2d9a009d6ef294341ba5f5547d05b525f49aec41",
+      "source_fingerprint": "e37eb3c42be96e159e9a2b5438452e170198ba74e5c43f98353eec07b3c2befe",
+      "target": {
+        "kind": "parabank",
+        "origin": "http://127.0.0.1:8080/parabank",
+        "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
+        "loopback": true
+      },
+      "provider": {
+        "mode": "offline_scripted_test_backend",
+        "credentials": "removed",
+        "provider_calls": 0
+      },
+      "test": {
+        "nodeid": "tests/test_discovery_native.py::test_native_offline_discovery_validation_approval_and_cross_client_replay",
+        "passed": true,
+        "duration_seconds": 27.31
+      },
+      "replay": {
+        "discovery": "SUCCESS",
+        "draft_validation": "SUCCESS",
+        "approval": "APPROVED",
+        "cross_client": true
+      },
+      "criterion": {
+        "native_customers": 2,
+        "replays_per_customer": 5,
+        "replay_count": 10,
+        "successful_replays": 10,
+        "all_outputs_match_independent_oracle": true,
+        "balance_change_observed": true
+      },
+      "safety": {
+        "private_values_persisted": false
+      },
+      "source": "pinned loopback ParaBank testbed with synthetic principals; no live provider discovery"
+    },
+    {
+      "case_id": "V11",
+      "status": "PASS",
+      "evidence_type": "clean_checkout",
+      "recorded_on": "2026-09-21",
+      "repository_commit": "2d9a009d6ef294341ba5f5547d05b525f49aec41",
+      "source_fingerprint": "e37eb3c42be96e159e9a2b5438452e170198ba74e5c43f98353eec07b3c2befe",
+      "checkout": {
+        "fresh_clone": true,
+        "development_state": "not_used",
+        "lockfile": "uv.lock"
+      },
+      "commands": [
+        "uv sync --locked",
+        "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q"
+      ],
+      "result": {
+        "setup_exit_code": 0,
+        "test_exit_code": 0,
+        "passed": 268,
+        "skipped": 2,
+        "failed": 0,
+        "model_credentials": "removed",
+        "provider_calls": 0,
+        "replay_assertions": true
+      },
+      "source": "fresh checkout at the recorded commit; no development database or browser state was used"
+    }
+  ],
+  "note": "V2 native offline replay and V11 clean-checkout evidence are recorded. Live provider discovery, real-person takeover, and browser end-to-end acceptance remain unrun."
 }
