@@ -71,30 +71,204 @@ class _InterventionEpochRequest:
 
 
 _INDEX_HTML = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>CUA</title></head>
-<body><main><h1>Computer-use automation</h1>
-<label>Local token <input id="token" type="password" autocomplete="off"></label>
-<section id="run"><h2>Run</h2>
-<label>Principal <input id="principal" value="synthetic_alpha"></label>
-<button id="prepare">Prepare session</button><output id="session"></output><br>
-<label>Goal <input id="goal" value="Get the available balance for savings account"></label>
-<label>Account <input id="account" inputmode="numeric"></label>
-<button id="discover">Discover</button><button id="replay">Replay approved</button>
-<pre id="run-status"></pre><button id="read-result">Read result</button><pre id="result"></pre></section>
-<section id="capabilities"><h2>Capabilities</h2>
-<button id="refresh">Refresh</button>
-<label>Revision <select id="capability-choice"><option value="">Refresh capability list</option></select></label>
-<label>Name <input id="capability-name" readonly></label>
-<label>Version <input id="capability-version" readonly></label>
-<label>Digest <input id="capability-digest" readonly></label>
-<button id="inspect">Inspect</button><button id="validate">Validate</button><button id="approve">Approve</button>
-<output id="capability-ref"></output><pre id="capability-list"></pre></section>
-<section id="intervention"><h2>Intervention</h2>
-<p id="intervention-state">No active intervention.</p><output id="intervention-epoch"></output>
-<button id="intervention-claim" type="button">Claim</button>
-<button id="intervention-resume" type="button">Resume</button>
-<button id="intervention-abort" type="button">Abort</button>
-<pre id="intervention-detail"></pre></section>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Operator — Computer use</title>
+<style>
+:root {
+  color-scheme: light;
+  --canvas: #f5f5f7;
+  --surface: #fff;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #d2d2d7;
+  --blue: #0071e3;
+  --blue-dark: #0066cc;
+  --green: #1e854b;
+  --red: #d70015;
+  --dock: #1d1d1f;
+  --shadow: 0 18px 48px rgb(0 0 0 / 7%), 0 2px 8px rgb(0 0 0 / 4%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--canvas); scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 3px solid rgb(0 113 227 / 30%);
+  outline-offset: 3px;
+}
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -48px;
+  z-index: 10;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: white;
+  text-decoration: none;
+  transition: top 140ms ease-out;
+}
+.skip-link:focus { top: 16px; }
+.app-shell { width: min(1120px, calc(100% - 48px)); margin: 0 auto; padding: 38px 0 72px; }
+.site-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 54px; }
+.eyebrow { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 0; font-size: clamp(48px, 8vw, 86px); font-weight: 700; letter-spacing: -.055em; line-height: .95; text-wrap: balance; }
+h2 { margin-bottom: 8px; font-size: 28px; letter-spacing: -.035em; line-height: 1.1; }
+h3 { margin-bottom: 4px; font-size: 18px; letter-spacing: -.02em; }
+.token-field { display: grid; gap: 8px; width: min(250px, 100%); color: var(--muted); font-size: 12px; font-weight: 600; }
+.token-field input { width: 100%; }
+.card { border-radius: 28px; background: var(--surface); box-shadow: var(--shadow); }
+.intervention-card { position: relative; margin-bottom: 22px; padding: clamp(26px, 5vw, 52px); overflow: hidden; }
+.intervention-card[data-state="active"] { box-shadow: 0 0 0 2px var(--blue), var(--shadow); }
+.intervention-card[data-state="idle"] { box-shadow: 0 0 0 1px rgb(0 0 0 / 4%), var(--shadow); }
+.intervention-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.intervention-kicker { margin: 0 0 14px; color: var(--blue); font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+#intervention-state { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.45; text-wrap: pretty; }
+.status-pill { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 8px 13px; border-radius: 999px; background: #f5f5f7; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .01em; }
+.status-pill::before { width: 7px; height: 7px; border-radius: 50%; background: #a1a1a6; content: ""; }
+.intervention-card[data-state="active"] .status-pill { background: #e8f2ff; color: var(--blue-dark); }
+.intervention-card[data-state="active"] .status-pill::before { background: var(--blue); }
+.intervention-instruction { max-width: 680px; margin: 30px 0 28px; font-size: clamp(25px, 4vw, 42px); font-weight: 600; letter-spacing: -.04em; line-height: 1.08; text-wrap: balance; }
+.handoff-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 28px; padding: 0; list-style: none; }
+.handoff-steps li { display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.handoff-steps li::before { display: grid; place-items: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%; background: #f5f5f7; color: var(--ink); font-size: 11px; font-weight: 700; content: attr(data-step); }
+.handoff-steps li:first-child { border-top-color: var(--blue); color: var(--ink); }
+.handoff-steps li:first-child::before { background: var(--blue); color: #fff; }
+.epoch { display: block; min-height: 18px; margin-bottom: 18px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.action-dock { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; border-radius: 20px; background: var(--dock); color: #fff; }
+.dock-copy { display: grid; gap: 3px; min-width: 0; }
+.dock-label { color: #a1a1a6; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+.dock-value { overflow: hidden; color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.button-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.button { min-height: 42px; padding: 10px 17px; border: 0; border-radius: 999px; font-size: 14px; font-weight: 600; transition: background-color 140ms ease-out, color 140ms ease-out, transform 140ms ease-out, opacity 140ms ease-out; }
+.button:active:not(:disabled) { transform: scale(.96); }
+.button-primary { background: var(--blue); color: #fff; }
+.button-primary:hover:not(:disabled) { background: var(--blue-dark); }
+.button-secondary { background: #f5f5f7; color: var(--ink); }
+.button-secondary:hover:not(:disabled) { background: #e8e8ed; }
+.button-dark { background: #fff; color: var(--ink); }
+.button-dark:hover:not(:disabled) { background: #e8e8ed; }
+.button-danger { background: transparent; color: var(--red); }
+.button-danger:hover:not(:disabled) { background: #fff2f3; }
+.action-dock .button-danger { color: #ff8a91; }
+.action-dock .button-danger:hover:not(:disabled) { background: rgb(255 255 255 / 12%); color: #ffadb2; }
+.button:disabled { opacity: .4; }
+.action-status { min-height: 20px; margin: 12px 0 0; color: var(--red); font-size: 13px; font-weight: 600; }
+.action-status:empty { display: none; }
+.technical-disclosure { margin-top: 24px; }
+.technical-disclosure summary { width: fit-content; cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 600; }
+.technical-disclosure pre { margin-top: 12px; }
+.tool-stack { display: grid; gap: 14px; }
+.tool-panel { padding: 0 30px; box-shadow: 0 0 0 1px rgb(0 0 0 / 4%); }
+.tool-panel > summary { display: flex; align-items: center; justify-content: space-between; min-height: 72px; cursor: pointer; list-style: none; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.tool-panel > summary::-webkit-details-marker { display: none; }
+.tool-panel > summary::after { color: var(--muted); content: "+"; font-size: 22px; font-weight: 400; }
+.tool-panel[open] > summary::after { content: "−"; }
+.summary-meta { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.tool-body { padding: 2px 0 30px; }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.field { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.field-wide { grid-column: 1 / -1; }
+input, select { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink); font-size: 15px; }
+input[readonly] { background: #f5f5f7; color: var(--muted); }
+select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #6e6e73 50%), linear-gradient(135deg, #6e6e73 50%, transparent 50%); background-position: calc(100% - 17px) 19px, calc(100% - 12px) 19px; background-repeat: no-repeat; background-size: 5px 5px, 5px 5px; padding-right: 32px; }
+.secondary-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 22px; }
+.result-block { margin-top: 26px; }
+.result-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; color: var(--muted); font-size: 12px; font-weight: 600; }
+pre { overflow: auto; max-height: 260px; margin: 0; padding: 15px; border-radius: 14px; background: #f5f5f7; color: #424245; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.capability-ref { display: block; margin-top: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; word-break: break-all; }
+.capability-output { margin-top: 18px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 720px) {
+  .app-shell { width: min(100% - 28px, 600px); padding-top: 24px; }
+  .site-header { display: block; margin-bottom: 34px; }
+  .token-field { width: min(100%, 300px); margin-top: 26px; }
+  .intervention-header { display: block; }
+  .status-pill { margin-top: 18px; }
+  .handoff-steps { grid-template-columns: 1fr; gap: 0; }
+  .handoff-steps li { padding: 11px 0; }
+  .action-dock { align-items: stretch; flex-direction: column; }
+  .action-dock .button-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .action-dock .button { width: 100%; }
+  .tool-panel { padding: 0 20px; }
+  .tool-panel > summary { min-height: 64px; }
+  .field-grid { grid-template-columns: 1fr; }
+  .field-wide { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+</style></head>
+<body>
+<a class="skip-link" href="#intervention">Skip to handoff</a>
+<main class="app-shell">
+  <header class="site-header">
+    <div><p class="eyebrow">Computer use</p><h1>Operator</h1></div>
+    <label class="token-field">Local token<input id="token" type="password" autocomplete="off" spellcheck="false"></label>
+  </header>
+
+  <section id="intervention" class="card intervention-card" data-state="idle" aria-labelledby="intervention-heading">
+    <div class="intervention-header">
+      <div><p class="intervention-kicker">Human handoff</p><h2 id="intervention-heading">Ready when you are.</h2><p id="intervention-state" aria-live="polite">No active intervention.</p></div>
+      <span class="status-pill" aria-label="Intervention status">Idle</span>
+    </div>
+    <p id="intervention-instruction" class="intervention-instruction">Your session is clear.</p>
+    <ol class="handoff-steps" aria-label="Handoff steps"><li data-step="1">Claim</li><li data-step="2">Fix blocker</li><li data-step="3">Resume</li></ol>
+    <output id="intervention-epoch" class="epoch" aria-live="polite"></output>
+    <div class="action-dock" aria-label="Intervention actions">
+      <div class="dock-copy"><span class="dock-label">Session control</span><span id="intervention-dock-status" class="dock-value">No active handoff.</span></div>
+      <div class="button-row"><button id="intervention-claim" class="button button-dark" type="button" disabled>Claim</button><button id="intervention-resume" class="button button-primary" type="button" disabled>Resume</button><button id="intervention-abort" class="button button-danger" type="button" disabled>Abort</button></div>
+    </div>
+    <p id="intervention-action-status" class="action-status" role="status" aria-live="assertive"></p>
+    <details class="technical-disclosure"><summary>Technical details</summary><pre id="intervention-detail"></pre></details>
+  </section>
+
+  <div class="tool-stack">
+    <details id="run" class="card tool-panel">
+      <summary><span>Run</span><span class="summary-meta">Discover or replay</span></summary>
+      <div class="tool-body">
+        <div class="field-grid">
+          <label class="field">Principal<input id="principal" value="synthetic_alpha" autocomplete="off"></label>
+          <label class="field">Account<input id="account" inputmode="numeric" autocomplete="off"></label>
+          <label class="field field-wide">Goal<input id="goal" value="Get the available balance for savings account"></label>
+        </div>
+        <div class="action-dock" style="margin-top:22px">
+          <div class="dock-copy"><span class="dock-label">Session</span><span id="session" class="dock-value">Not prepared</span></div>
+          <div class="button-row"><button id="prepare" class="button button-dark" type="button">Prepare</button><button id="discover" class="button button-primary" type="button">Discover</button><button id="replay" class="button button-dark" type="button">Replay</button></div>
+        </div>
+        <div class="result-block"><div class="result-toolbar"><span>Run status</span><button id="read-result" class="button button-secondary" type="button">Read result</button></div><pre id="run-status" aria-live="polite"></pre><pre id="result" aria-live="polite" style="margin-top:10px"></pre></div>
+      </div>
+    </details>
+
+    <details id="capabilities" class="card tool-panel">
+      <summary><span>Capabilities</span><span class="summary-meta">Inspect, validate, approve</span></summary>
+      <div class="tool-body">
+        <div class="field-grid">
+          <label class="field field-wide">Revision<select id="capability-choice"><option value="">Refresh capability list</option></select></label>
+          <label class="field">Name<input id="capability-name" readonly></label>
+          <label class="field">Version<input id="capability-version" readonly></label>
+          <label class="field field-wide">Digest<input id="capability-digest" readonly></label>
+        </div>
+        <div class="secondary-actions"><button id="refresh" class="button button-secondary" type="button">Refresh</button><button id="inspect" class="button button-secondary" type="button">Inspect</button><button id="validate" class="button button-secondary" type="button">Validate</button><button id="approve" class="button button-primary" type="button">Approve</button></div>
+        <output id="capability-ref" class="capability-ref"></output>
+        <div class="capability-output"><span class="sr-only">Capability details</span><pre id="capability-list" aria-live="polite"></pre></div>
+      </div>
+    </details>
+  </div>
+</main>
 <script>
 let token = '';
 let sessionId = '';
@@ -102,7 +276,8 @@ let runId = '';
 let capabilities = [];
 let intervention = null;
 let interventionTimer = null;
-const $ = id => document.querySelector(id);
+const ACTIVE_INTERVENTION_STATES = new Set(['WAITING_FOR_HUMAN', 'HUMAN_CLAIMED', 'RESUMING']);
+const $ = id => document.getElementById(id.startsWith('#') ? id.slice(1) : id);
 function selectedCapability() {
   const index = Number($('#capability-choice').value);
   return Number.isInteger(index) && capabilities[index] ? capabilities[index] : null;
@@ -181,23 +356,64 @@ async function poll() {
   if(value.state === 'WAITING_FOR_HUMAN') void refreshInterventions();
   if(['RUNNING','WAITING_FOR_HUMAN'].includes(value.state)) setTimeout(() => void poll(), 2000);
 }
+function interventionInstruction(value) {
+  const state = String(value.state || '');
+  if (state === 'HUMAN_CLAIMED') return 'Resolve the blocker in the same window.';
+  if (state === 'RESUMING') return 'Keep the same window open while we verify.';
+  const instructions = {
+    PRECONDITION_UNKNOWN: 'Confirm the page is ready in the same window.',
+    POSTCONDITION_UNKNOWN: 'Check the page result in the same window.',
+    ACCESS_DENIED: 'Review access in the same window.',
+    ACCOUNT_NOT_FOUND: 'Check the requested account in the same window.',
+    ACCOUNT_TYPE_MISMATCH: 'Choose the requested account type in the same window.',
+    AUTHENTICATION_CHANGED: 'Sign in again with the original principal.',
+    SESSION_EXPIRED: 'Sign in again with the original principal.',
+    SUBJECT_MISMATCH: 'Confirm the original principal is signed in.',
+  };
+  return instructions[String(value.reason || '')] || 'Resolve the blocker in the same window.';
+}
 function showIntervention(value) {
-  intervention = value;
+  const active = Boolean(value && ACTIVE_INTERVENTION_STATES.has(value.state));
+  intervention = active ? value : null;
+  const card = $('#intervention');
   const state = $('#intervention-state');
   const epoch = $('#intervention-epoch');
   const detail = $('#intervention-detail');
+  const instruction = $('#intervention-instruction');
+  const dockStatus = $('#intervention-dock-status');
+  const actionStatus = $('#intervention-action-status');
+  const statusPill = document.querySelector('.status-pill');
   const buttons = ['intervention-claim', 'intervention-resume', 'intervention-abort'];
+  card.dataset.state = active ? 'active' : 'idle';
+  document.body.classList.toggle('has-intervention', active);
   if (!value) {
     state.textContent = 'No active intervention.';
+    instruction.textContent = 'Your session is clear.';
+    dockStatus.textContent = 'No active handoff.';
     epoch.textContent = '';
     detail.textContent = '';
+    actionStatus.textContent = '';
+    statusPill.textContent = 'Idle';
+    statusPill.setAttribute('aria-label', 'Intervention status: idle');
     buttons.forEach(id => { $(id).disabled = true; });
     return;
   }
   state.textContent = `${value.state} · ${value.reason}`;
+  instruction.textContent = active ? interventionInstruction(value) : 'No action needed.';
+  dockStatus.textContent = !active
+    ? 'No active handoff.'
+    : value.state === 'RESUMING'
+      ? 'Verification is in progress.'
+      : 'Automation is paused until you resume.';
   epoch.textContent = `Epoch ${value.epoch}`;
   detail.textContent = JSON.stringify(value, null, 2);
-  buttons.forEach(id => { $(id).disabled = false; });
+  actionStatus.textContent = '';
+  statusPill.textContent = !active ? 'Inactive' : value.state === 'RESUMING' ? 'Verifying' : 'Action needed';
+  statusPill.setAttribute('aria-label', `Intervention status: ${active ? value.state : 'inactive'}`);
+  $('#intervention-claim').disabled = !active || value.state !== 'WAITING_FOR_HUMAN';
+  $('#intervention-resume').disabled = !active || value.state !== 'HUMAN_CLAIMED';
+  $('#intervention-abort').disabled = !active || value.state === 'RESUMING';
+  if (active) scheduleInterventionPoll();
 }
 function scheduleInterventionPoll() {
   if (interventionTimer !== null) return;
@@ -217,7 +433,10 @@ async function interventionAction(action) {
   });
   const value = await response.json();
   if (response.ok) showIntervention(value);
-  else $('#intervention-detail').textContent = JSON.stringify(value, null, 2);
+  else {
+    $('#intervention-detail').textContent = JSON.stringify(value, null, 2);
+    $('#intervention-action-status').textContent = value && typeof value.code === 'string' ? value.code : 'Action could not be completed.';
+  }
   if (response.ok && value.state === 'RUNNING') void poll();
 }
 $('#intervention-claim').onclick = () => void interventionAction('claim');
@@ -227,7 +446,7 @@ $('#read-result').onclick = async () => {
   if (!runId) { $('#result').textContent = 'Start a run first.'; return; }
   const r = await api(`/api/runs/${runId}/result`); $('#result').textContent = JSON.stringify(await r.json(), null, 2);
 };
-</script></main></body></html>"""
+</script></body></html>"""
 
 
 class _NoStoreMiddleware(BaseHTTPMiddleware):

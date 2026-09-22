@@ -74,9 +74,9 @@
       "status": "PASS",
       "evidence_type": "native_loopback",
       "recorded_on": "2026-09-21",
-      "repository_commit": "40b2808f795aaab322dc5a7515c1c708afc7bff5",
+      "repository_commit": "d42b067e0639c3fa05e4470c95e9bc12593fef4d",
       "repository_state": "working_tree_fingerprint_bound",
-      "source_fingerprint": "d8ed20b770366a61d87a314d5a10aca27649eb2e96cb12808e8c427c2193edf9",
+      "source_fingerprint": "441b103b80e1d87e5239452d8274aa8f44c50458740adb6449903d26a8ed9ec3",
       "target": {
         "kind": "parabank",
         "origin": "http://127.0.0.1:8080/parabank",
@@ -91,7 +91,7 @@
       "test": {
         "nodeid": "tests/test_discovery_native.py::test_native_offline_discovery_validation_approval_and_cross_client_replay",
         "passed": true,
-        "duration_seconds": 25.0
+        "duration_seconds": 24.98
       },
       "replay": {
         "discovery": "SUCCESS",

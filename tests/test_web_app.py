@@ -1,5 +1,8 @@
 from dataclasses import replace
+import shutil
+import subprocess
 
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -350,3 +353,84 @@ def test_index_exposes_intervention_poll_and_epoch_actions():
     for route in ("/api/interventions", "expected_epoch", "refreshInterventions", "interventionAction('claim')", "interventionAction('resume')", "interventionAction('abort')"):
         assert route in html
     assert "_token" not in html
+
+
+def test_index_uses_progressive_operator_surface_without_changing_controls():
+    client = TestClient(create_app(_FakeService(), operator_token="test-token"))
+    html = client.get("/").text
+
+    # Keep the visual contract intentionally small: the important states and
+    # controls are asserted, while layout remains free to evolve.
+    for marker in (
+        '<title>Operator — Computer use</title>',
+        "--canvas: #f5f5f7",
+        "-apple-system",
+        "intervention-card",
+        'data-state="idle"',
+        'class="action-dock"',
+        'class="handoff-steps"',
+        '<details id="run"',
+        '<details id="capabilities"',
+        "prefers-reduced-motion",
+    ):
+        assert marker in html
+
+    for control in (
+        "token",
+        "principal",
+        "account",
+        "goal",
+        "session",
+        "intervention-dock-status",
+        "prepare",
+        "discover",
+        "replay",
+        "run-status",
+        "result",
+        "read-result",
+        "capability-choice",
+        "capability-list",
+        "intervention-state",
+        "intervention-epoch",
+        "intervention-detail",
+        "intervention-action-status",
+    ):
+        assert f'id="{control}"' in html
+
+    assert "localStorage" not in html
+    assert "credentials: 'same-origin'" in html
+    assert "X-CUA-CSRF" in html
+    assert "const $ = id => document.getElementById(id.startsWith('#') ? id.slice(1) : id);" in html
+    assert "const ACTIVE_INTERVENTION_STATES = new Set(['WAITING_FOR_HUMAN', 'HUMAN_CLAIMED', 'RESUMING']);" in html
+    assert "function interventionInstruction(value)" in html
+    assert 'aria-live="assertive"' in html
+    assert ".action-dock .button-danger { color: #ff8a91; }" in html
+    assert "Open Accounts Overview in ParaBank." not in html
+    assert "value.state === 'RESUMING'" in html
+    assert "Verification is in progress." in html
+    assert "value.state !== 'WAITING_FOR_HUMAN'" in html
+    assert "value.state !== 'HUMAN_CLAIMED'" in html
+    assert "value.state === 'RESUMING';" in html
+    assert "if (active) scheduleInterventionPoll();" in html
+
+
+def test_index_id_helper_accepts_selector_and_bare_ids_in_node_smoke():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+
+    html = TestClient(create_app(_FakeService(), operator_token="test-token")).get("/").text
+    helper = "const $ = id => document.getElementById(id.startsWith('#') ? id.slice(1) : id);"
+    assert helper in html
+    smoke = f"""
+const calls = [];
+globalThis.document = {{
+  getElementById(id) {{ calls.push(id); return {{id}}; }}
+}};
+{helper}
+if ($('#token').id !== 'token') throw new Error('selector form failed');
+if ($('intervention-claim').id !== 'intervention-claim') throw new Error('bare form failed');
+if (calls.join(',') !== 'token,intervention-claim') throw new Error('normalization failed');
+"""
+    result = subprocess.run([node, "--eval", smoke], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr

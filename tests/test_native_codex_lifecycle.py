@@ -120,7 +120,7 @@ def _successful_native_review_result():
             "bundle_digest": digest,
             "validation_run_ref": "run_native_review",
             "runtime_fingerprint": {
-                "source_sha256": "72ca730a2b8cf7a3f90ce3d52f3c53175360f0398ea16625d1fd3a70f7b5c17d",
+                "source_sha256": "b508c89b91e6eab8ed102bf0d30253591044c71908f30b3b1e82033074b907e0",
                 "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
                 "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
                 "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
