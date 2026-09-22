@@ -51,9 +51,10 @@ def test_readme_contains_reproducible_setup_target_and_entrypoints():
         "scripts/verify_release.py",
     ):
         assert command in text
-    assert "V2 has a fingerprinted native loopback record" in text
+    assert "V2 has a current-source native loopback record" in text
     assert "V11 remains `NOT_RUN`" in text
     assert "localStorage" in text
+    assert "CUA_PROVIDER_MODEL=codex-cli" not in text
 
 
 def test_verification_entrypoint_keeps_unsupported_cases_unrun():
@@ -94,13 +95,18 @@ def test_verification_entrypoint_keeps_unsupported_cases_unrun():
 def test_release_indexes_do_not_fabricate_capabilities_or_live_artifacts():
     artifacts = json.loads((ROOT / "artifacts/index.json").read_text())
     evidence = json.loads((ROOT / "evidence/index.json").read_text())
-    assert artifacts["entries"] == []
-    assert {entry["case_id"] for entry in evidence["entries"]} == {"V2", "V11"}
+    assert len(artifacts["entries"]) == 1
+    draft = artifacts["entries"][0]
+    assert draft["lifecycle"] == "DRAFT"
+    assert draft["approval"]["sidecar_committed"] is False
+    assert {entry["case_id"] for entry in evidence["entries"]} == {"V1", "V2", "V11"}
     by_case = {entry["case_id"]: entry for entry in evidence["entries"]}
+    assert by_case["V1"]["status"] == "PARTIAL_DIAGNOSTIC"
+    assert by_case["V1"]["acceptance_status"] == "NOT_RUN"
     assert by_case["V2"]["status"] == "PASS"
     assert by_case["V11"]["status"] == "PARTIAL_DIAGNOSTIC"
     assert by_case["V11"]["acceptance_status"] == "NOT_RUN"
-    assert artifacts["status"] == "EMPTY_UNTIL_LIVE_DISCOVERY"
+    assert artifacts["status"] == "LIVE_CODEX_DRAFT_AVAILABLE"
     assert evidence["status"] == "PARTIAL_RELEASE_EVIDENCE"
 
 
@@ -185,6 +191,79 @@ def test_complete_case_specific_evidence_is_promoted():
     assert v2["evidence"]["validation"] == "PASS"
 
 
+def test_v1_requires_committed_approved_artifact_and_target_provenance(monkeypatch):
+    verifier = _load_verifier()
+    evidence = json.loads((ROOT / "evidence/index.json").read_text(encoding="utf-8"))
+    v1 = next(entry for entry in evidence["entries"] if entry["case_id"] == "V1")
+    v1 = json.loads(json.dumps(v1))
+    v1.update(
+        {
+            "status": "PASS",
+            "evidence_type": "live_discovery",
+            "source_fingerprint": verifier.source_fingerprint(ROOT),
+            "test": {"passed": True},
+        }
+    )
+    v1["trace"]["derived_capability"] = True
+    v1["artifact"]["lifecycle"] = "APPROVED"
+    v1["artifact"]["sidecar_committed"] = True
+    v1["validation"]["validation_run_ref"] = "run_a5ce93086e6c9aa0"
+    evidence["entries"] = [
+        entry for entry in evidence["entries"] if entry["case_id"] != "V1"
+    ] + [v1]
+    monkeypatch.setattr(verifier, "_release_evidence", lambda root: evidence)
+
+    sidecar_path = ROOT / "artifacts/get_savings_balance-1.0.0.json.approval.json"
+    sidecar = {
+        "approved_at": "2026-09-21T00:00:00Z",
+        "capability_version": "1.0.0",
+        "digest": v1["artifact"]["digest"].removeprefix("sha256:"),
+        "reviewer_ref": "reviewer_native_codex",
+        "reviewer_type": "independent_reviewer",
+        "validation_run_ref": "run_a5ce93086e6c9aa0",
+    }
+    sidecar_path.write_bytes(
+        json.dumps(sidecar, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    )
+    try:
+        report = verifier.build_report(ROOT, run_tests=False)
+    finally:
+        sidecar_path.unlink(missing_ok=True)
+
+    promoted = next(case for case in report["cases"] if case["id"] == "V1")
+    assert promoted["status"] == "PASS"
+    assert promoted["evidence"]["validation"] == "PASS"
+
+
+def test_v1_missing_artifact_cannot_promote(monkeypatch):
+    verifier = _load_verifier()
+    evidence = json.loads((ROOT / "evidence/index.json").read_text(encoding="utf-8"))
+    v1 = next(entry for entry in evidence["entries"] if entry["case_id"] == "V1")
+    v1 = json.loads(json.dumps(v1))
+    v1.update(
+        {
+            "status": "PASS",
+            "evidence_type": "live_discovery",
+            "source_fingerprint": verifier.source_fingerprint(ROOT),
+            "test": {"passed": True},
+        }
+    )
+    v1["trace"]["derived_capability"] = True
+    v1["artifact"]["lifecycle"] = "APPROVED"
+    v1["artifact"]["sidecar_committed"] = True
+    v1["artifact"]["path"] = "artifacts/does-not-exist.json"
+    evidence["entries"] = [
+        entry for entry in evidence["entries"] if entry["case_id"] != "V1"
+    ] + [v1]
+    monkeypatch.setattr(verifier, "_release_evidence", lambda root: evidence)
+
+    report = verifier.build_report(ROOT, run_tests=False)
+
+    rejected = next(case for case in report["cases"] if case["id"] == "V1")
+    assert rejected["status"] == "NOT_RUN"
+    assert rejected["evidence"]["validation"] == "REJECTED"
+
+
 def test_partial_v11_clean_checkout_diagnostic_is_rejected():
     verifier = _load_verifier()
     report = verifier.build_report(ROOT, run_tests=False)
@@ -203,6 +282,7 @@ def test_complete_v11_requires_native_no_model_replay_and_approved_artifact(monk
         {
             "status": "PASS",
             "evidence_type": "clean_checkout",
+            "source_fingerprint": verifier.source_fingerprint(ROOT),
             "native_target": {
                 "prepared": True,
                 "loopback": True,

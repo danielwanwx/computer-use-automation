@@ -14,7 +14,10 @@ from cua.models.bundles import TargetDefinition
 from cua.profiles.parabank import LOCATORS
 from cua.sessions import ActorStaleEpoch, PrincipalSpec, SessionError, SessionManager
 from cua.surface import PlaywrightSurface, SurfaceError
+from testbed.evaluator import EvaluationError, assert_result_matches_backend
+from testbed.parabank import DEFAULT_ORIGIN
 from testbed.seed import seed
+from tests.test_discovery_native import _backend_account
 
 
 @pytest.mark.skipif(
@@ -39,9 +42,12 @@ def test_native_surface_identity_membership_navigation_and_href_fencing():
         manifest = json.loads(Path("testbed/.cache/seed_manifest.json").read_text(encoding="utf-8"))
         alpha = next(item for item in manifest["principals"] if item["alias"] == "alpha")
         savings = [item["account_id"] for item in alpha["accounts"] if item["type"] == "SAVINGS"]
+        checking = next(
+            item["account_id"] for item in alpha["accounts"] if item["type"] == "CHECKING"
+        )
         if len(savings) < 2:
             raise AssertionError("synthetic principal lacks two savings accounts")
-        asyncio.run(_exercise_surface(savings[0], savings[1]))
+        asyncio.run(_exercise_surface(savings[0], savings[1], checking))
     finally:
         for name, value in previous.items():
             if value is None:
@@ -50,7 +56,7 @@ def test_native_surface_identity_membership_navigation_and_href_fencing():
                 os.environ[name] = value
 
 
-async def _exercise_surface(account_a: str, account_b: str) -> None:
+async def _exercise_surface(account_a: str, account_b: str, checking_account: str) -> None:
     manager = SessionManager(
         (
             PrincipalSpec(
@@ -573,6 +579,53 @@ async def _exercise_surface(account_a: str, account_b: str) -> None:
             rationale="Return to the synthetic account overview",
         )
         await submit(lambda: surface.execute(handle.session_id, overview_decision, overview_resolved))
+        await wait_path("/overview.htm")
+
+        # The native account table includes a checking account.  The UI can
+        # display it, but the savings capability's independent oracle must
+        # reject a correctly formatted result for that wrong account type.
+        checking_binding = {"inputs.account_id": SecretStr(checking_account)}
+        checking_observation, _ = await wait_state(
+            "accounts_overview", "OVERVIEW_READY", checking_binding
+        )
+        checking_target = TargetDefinition(
+            ref="requested_checking_account",
+            locator="TABLE_ACCOUNT_LINK_BY_INPUT",
+            allowed_operations=("CLICK",),
+            binding_ref="inputs.account_id",
+        )
+        checking_resolved = await submit(lambda: surface.resolve_target(
+            handle.session_id,
+            checking_observation.id,
+            checking_target,
+            checking_binding,
+        ))
+        checking_decision = ClickDecision(
+            observation_id=checking_observation.id,
+            operation="CLICK",
+            control_ref=checking_resolved.control_ref,
+            reason_code="OPEN_ACCOUNT",
+            rationale="Open the observed checking account for wrong-type verification",
+        )
+        await submit(lambda: surface.execute(
+            handle.session_id, checking_decision, checking_resolved
+        ))
+        await wait_path("/activity.htm")
+        _, checking_detail = await wait_state(
+            "account_details", "DETAIL_READY", checking_binding
+        )
+        if checking_detail.field_values["PROFILE_ACCOUNT_TYPE"][0].get_secret_value() != "CHECKING":
+            raise AssertionError("native checking fixture did not render its account type")
+        with pytest.raises(EvaluationError, match="ACCOUNT_TYPE_MISMATCH"):
+            assert_result_matches_backend(
+                {
+                    "status": "SUCCESS",
+                    "outputs": {"available_balance": "0.00", "currency": "USD"},
+                },
+                requested_account_id=checking_account,
+                backend_account=_backend_account(DEFAULT_ORIGIN, checking_account),
+            )
+        await submit(lambda: page.go_back(wait_until="domcontentloaded"))
         await wait_path("/overview.htm")
 
         try:

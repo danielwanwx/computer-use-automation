@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "evidence_type": "native_acceptance_diagnostics",
+  "recorded_on": "2026-09-21",
+  "source_fingerprint": "e6c3510a54c277244746977c321df99c22e32dddfc33f68fe9543713b6b2937e",
+  "target": {
+    "kind": "parabank",
+    "origin": "http://127.0.0.1:8080/parabank",
+    "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
+    "loopback": true
+  },
+  "runs": [
+    {
+      "case_ids": ["V3"],
+      "test_nodeid": "tests/test_native_acceptance.py::test_native_v3_zero_model_replay_matches_independent_oracle",
+      "test_status": "PASS",
+      "native_ui_replay": true,
+      "temporary_artifact_source": "offline_scripted_test_backend",
+      "model_credentials": "removed",
+      "provider_calls": 0,
+      "independent_oracle_match": true,
+      "recovery_criterion": "NOT_RUN",
+      "acceptance_status": "NOT_RUN"
+    },
+    {
+      "case_ids": ["V10"],
+      "test_nodeid": "tests/test_native_acceptance.py::test_native_v10_safe_snapshot_excludes_protected_binding",
+      "test_status": "PASS",
+      "native_ui_observation": true,
+      "safe_snapshot_excluded_protected_binding": true,
+      "forbidden_side_effects": "NOT_RUN",
+      "canary_leak_check": "NOT_RUN",
+      "acceptance_status": "NOT_RUN"
+    },
+    {
+      "case_ids": ["V4", "V5", "V7", "V8"],
+      "test_nodeid": "tests/test_surface_live.py::test_native_surface_identity_membership_navigation_and_href_fencing",
+      "test_status": "PASS",
+      "native_facts": [
+        "membership mismatch rejected",
+        "wrong principal preserved for intervention",
+        "same-context reauthentication preserved page and context",
+        "wrong-type result rejected by independent evaluator"
+      ],
+      "injected_fault_facts": [
+        "stale observation",
+        "wrong frame",
+        "duplicate target",
+        "href tampering",
+        "generic application error",
+        "explicit denial signal",
+        "unknown modal blocker"
+      ],
+      "acceptance_status": "NOT_RUN",
+      "reason": "The test combines native observations with test-only DOM fault injection and does not by itself satisfy every case criterion."
+    }
+  ],
+  "remaining_blockers": {
+    "V1": "Requires an authorized live provider discovery trace and capability artifact.",
+    "V4": "Native missing-input and complete business-outcome evidence still not recorded.",
+    "V5": "Native wrong-member/duplicate coverage is present, but a complete release manifest needs all case assertions in one controlled run.",
+    "V6": "Native transient/exhaustion/lost-receipt fault run remains unrecorded.",
+    "V7": "Native checks ran, but undefined-condition and post-approval dependency invalidation need a single case manifest.",
+    "V8": "Protocol/native checks ran; real operator takeover remains V9.",
+    "V9": "Requires a person operating the same headed browser session.",
+    "V10": "Forbidden-side-effect and canary persistence checks remain unrecorded on the native target.",
+    "V11": "Requires an approved real capability artifact and native no-model replay from a clean checkout.",
+    "V12": "Requires a complete browser workflow with an approved capability; provider discovery is unavailable."
+  }
+}

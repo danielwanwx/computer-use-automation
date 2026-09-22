@@ -15,6 +15,7 @@ import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any, Callable, Mapping
@@ -29,7 +30,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "real discovery and trace source",
         "required": "live provider-backed discovery with a trace-derived capability",
         "status": "NOT_RUN",
-        "reason": "Provider use was deferred; no live discovery artifact exists.",
+        "reason": "A Codex saved-login lifecycle diagnostic exists, but its temporary DRAFT artifact and uncommitted approval sidecar are not release evidence.",
         "command": ".venv/bin/python -B -m pytest -p no:cacheprovider tests/test_discovery_native.py",
     },
     {
@@ -109,7 +110,7 @@ _CASES: tuple[dict[str, Any], ...] = (
         "title": "clean environment reproduction",
         "required": "fresh checkout setup and no-model replay without development state",
         "status": "NOT_RUN",
-        "reason": "A fingerprinted clean-checkout setup and no-model replay run is recorded under V11.",
+        "reason": "A clean-checkout/offline diagnostic is recorded, but native no-model replay from an approved real artifact is still missing.",
         "command": "uv sync --locked && .venv/bin/python -B -m pytest -p no:cacheprovider -q",
     },
     {
@@ -223,10 +224,16 @@ def _case_evidence_is_current(
     case_id: str,
     evidence: dict[str, Any],
     current_source_fingerprint: str,
+    *,
+    root: Path = ROOT,
 ) -> bool:
     """Accept only a recognized, complete case record bound to this source tree."""
     validator = _CASE_EVIDENCE_VALIDATORS.get(case_id)
-    return bool(validator and validator(evidence, current_source_fingerprint))
+    if validator is None:
+        return False
+    if case_id == "V1":
+        return _validate_v1(evidence, current_source_fingerprint, root=root)
+    return validator(evidence, current_source_fingerprint)
 
 
 def _common_evidence_is_current(
@@ -259,6 +266,88 @@ def _nonempty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def _read_canonical_json(path: Path) -> tuple[bytes, Mapping[str, Any]] | None:
+    """Read one canonical JSON object without accepting a rewritten variant."""
+    try:
+        raw = path.read_bytes()
+        value = json.loads(raw.decode("utf-8"))
+        if not isinstance(value, Mapping):
+            return None
+        canonical = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if raw != canonical:
+        return None
+    return raw, value
+
+
+def _safe_release_path(root: Path, relative: Any) -> Path | None:
+    """Resolve a release path only when it is a regular file below ``root``."""
+    if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+        return None
+    candidate = root / relative
+    try:
+        root_resolved = root.resolve(strict=True)
+        resolved = candidate.resolve(strict=True)
+    except OSError:
+        return None
+    if candidate.is_symlink() or not resolved.is_file():
+        return None
+    if root_resolved == resolved or root_resolved not in resolved.parents:
+        return None
+    return resolved
+
+
+def _sidecar_is_bound(
+    *,
+    root: Path,
+    artifact: Mapping[str, Any],
+    artifact_path: Path,
+    artifact_digest: str,
+    capability_version: Any,
+    validation: Any,
+) -> bool:
+    """Require a real, canonical approval record when approval is claimed."""
+    if artifact.get("sidecar_committed") is not True:
+        return False
+    sidecar_relative = artifact.get("approval_sidecar_path")
+    if sidecar_relative is None:
+        sidecar_relative = artifact.get("sidecar_path")
+    if sidecar_relative is None:
+        sidecar_relative = f"{artifact_path.relative_to(root.resolve())}.approval.json"
+    sidecar_path = _safe_release_path(root, sidecar_relative)
+    if sidecar_path is None:
+        return False
+    loaded = _read_canonical_json(sidecar_path)
+    if loaded is None:
+        return False
+    _, sidecar = loaded
+    sidecar_digest = sidecar.get("digest")
+    if isinstance(sidecar_digest, str) and sidecar_digest.startswith("sha256:"):
+        sidecar_digest = sidecar_digest.removeprefix("sha256:")
+    validation_run_ref = (
+        validation.get("validation_run_ref")
+        if isinstance(validation, Mapping)
+        else None
+    )
+    return (
+        isinstance(sidecar_digest, str)
+        and f"sha256:{sidecar_digest}" == artifact_digest
+        and sidecar.get("capability_version") == capability_version
+        and _nonempty_string(sidecar.get("validation_run_ref"))
+        and sidecar.get("validation_run_ref") == validation_run_ref
+        and _nonempty_string(sidecar.get("reviewer_ref"))
+        and sidecar.get("reviewer_type") in {"independent_reviewer", "operator"}
+        and _nonempty_string(sidecar.get("approved_at"))
+    )
+
+
 def _mapping_with_true_flags(
     evidence: Mapping[str, Any],
     field: str,
@@ -268,11 +357,70 @@ def _mapping_with_true_flags(
     return isinstance(values, Mapping) and all(values.get(flag) is True for flag in flags)
 
 
-def _validate_v1(evidence: Mapping[str, Any], source_fingerprint: str) -> bool:
+def _validate_v1(
+    evidence: Mapping[str, Any],
+    source_fingerprint: str,
+    *,
+    root: Path = ROOT,
+) -> bool:
     trace = evidence.get("trace")
     capability = evidence.get("capability")
     provider = evidence.get("provider")
     target = evidence.get("target")
+    artifact = evidence.get("artifact")
+    provenance_types = (
+        artifact.get("provenance_types") if isinstance(artifact, Mapping) else None
+    )
+    artifact_digest = artifact.get("digest") if isinstance(artifact, Mapping) else None
+    artifact_reference = artifact.get("reference") if isinstance(artifact, Mapping) else None
+    artifact_path = (
+        _safe_release_path(root, artifact.get("path"))
+        if isinstance(artifact, Mapping)
+        else None
+    )
+    artifact_loaded = (
+        _read_canonical_json(artifact_path) if artifact_path is not None else None
+    )
+    artifact_payload = artifact_loaded[1] if artifact_loaded is not None else None
+    payload_capability = (
+        artifact_payload.get("capability")
+        if isinstance(artifact_payload, Mapping)
+        else None
+    )
+    payload_provenance = (
+        artifact_payload.get("provenance")
+        if isinstance(artifact_payload, Mapping)
+        else None
+    )
+    payload_steps = artifact_payload.get("steps") if isinstance(artifact_payload, Mapping) else None
+    payload_source_types = (
+        {
+            source.get("type")
+            for step in payload_steps
+            if isinstance(step, Mapping)
+            and isinstance(source := step.get("source"), Mapping)
+            and isinstance(source.get("type"), str)
+        }
+        if isinstance(payload_steps, list)
+        else set()
+    )
+    payload_observed_steps = (
+        sum(
+            1
+            for step in payload_steps
+            if isinstance(step, Mapping)
+            and isinstance(source := step.get("source"), Mapping)
+            and source.get("type") == "observed"
+        )
+        if isinstance(payload_steps, list)
+        else 0
+    )
+    payload_digest = (
+        f"sha256:{hashlib.sha256(artifact_loaded[0]).hexdigest()}"
+        if artifact_loaded is not None
+        else None
+    )
+    validation = evidence.get("validation")
     return (
         _common_evidence_is_current(
             evidence,
@@ -283,13 +431,53 @@ def _validate_v1(evidence: Mapping[str, Any], source_fingerprint: str) -> bool:
         and _passed_test(evidence)
         and isinstance(trace, Mapping)
         and _positive_int(trace.get("step_count"))
+        and trace.get("verified") is True
+        and trace.get("completion_proof_present") is True
         and trace.get("derived_capability") is True
         and isinstance(capability, Mapping)
         and capability.get("trace_derived") is True
+        and _nonempty_string(capability.get("reference"))
+        and capability.get("reference") == artifact_reference
+        and artifact_digest == capability.get("digest")
+        and isinstance(artifact, Mapping)
+        and _nonempty_string(artifact_reference)
+        and isinstance(artifact_digest, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest, re.ASCII) is not None
+        and artifact.get("lifecycle") == "APPROVED"
+        and artifact_path is not None
+        and artifact_loaded is not None
+        and payload_digest == artifact_digest
+        and isinstance(payload_capability, Mapping)
+        and payload_capability.get("name") == capability.get("reference", "").removeprefix("capability/").split("@", 1)[0]
+        and payload_capability.get("version") == artifact_reference.rsplit("@", 1)[-1]
+        and isinstance(payload_provenance, Mapping)
+        and payload_provenance.get("verified") is True
+        and payload_provenance.get("trace_id") == trace.get("trace_id")
+        and _nonempty_string(payload_provenance.get("completion_proof_id"))
+        and isinstance(payload_steps, list)
+        and payload_observed_steps == trace.get("step_count")
+        and {"observed", "declared", "reviewer_added"}.issubset(payload_source_types)
+        and isinstance(provenance_types, list)
+        and {"observed", "declared", "reviewer_added"}.issubset(provenance_types)
+        and artifact.get("trace_id") == trace.get("trace_id")
+        and _sidecar_is_bound(
+            root=root,
+            artifact=artifact,
+            artifact_path=artifact_path,
+            artifact_digest=artifact_digest,
+            capability_version=payload_capability.get("version"),
+            validation=validation,
+        )
         and isinstance(provider, Mapping)
-        and provider.get("mode") == "live"
+        and provider.get("mode") in {"live", "codex_saved_login"}
         and _positive_int(provider.get("provider_calls"))
+        and provider.get("credentials") in {"removed", "removed_from_provider_child"}
         and isinstance(target, Mapping)
+        and target.get("kind") == "parabank"
+        and target.get("origin") == "http://127.0.0.1:8080/parabank"
+        and target.get("upstream_commit") == "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+        and target.get("loopback") is True
+        and _nonempty_string(target.get("war_sha256"))
     )
 
 
@@ -633,6 +821,7 @@ def build_report(
             case_id,
             entries[0],
             current_source_fingerprint,
+            root=root,
         )
         explicit_failure = any(entry.get("status") == "FAIL" for entry in entries)
         if explicit_failure:

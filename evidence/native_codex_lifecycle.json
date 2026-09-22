@@ -1,0 +1,83 @@
+{
+  "approval": {
+    "digest": "sha256:62e5c052f54f110d9960a66e1f4d7bf91175f48fa8c455af6c7f06a9082e9495",
+    "sidecar_committed": false,
+    "status": "APPROVED_IN_TEMPORARY_REGISTRY"
+  },
+  "artifact": {
+    "digest": "sha256:62e5c052f54f110d9960a66e1f4d7bf91175f48fa8c455af6c7f06a9082e9495",
+    "path": "artifacts/get_savings_balance-1.0.0.json",
+    "provenance_types": [
+      "declared",
+      "observed",
+      "reviewer_added"
+    ],
+    "reference": "capability/get_savings_balance@1.0.0"
+  },
+  "case": "live_codex_native_lifecycle",
+  "evidence_path": "evidence/native_codex_lifecycle.json",
+  "provider": {
+    "credentials": "removed_from_provider_child",
+    "discovery_decisions": 2,
+    "mode": "codex_saved_login",
+    "model_id": "codex-cli",
+    "replay_provider_calls": 0
+  },
+  "replay": {
+    "balance_change_observed": true,
+    "credentials": "removed",
+    "customers": 2,
+    "independent_oracle_match": true,
+    "provider_calls": 0,
+    "runs_per_customer": 5,
+    "successful_replays": 10
+  },
+  "runtime_fingerprint": {
+    "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
+    "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
+    "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
+    "source_sha256": "6884e875346b88dfba691702dbfa8174d19df67632dd1fde0526f3cd3e8715d8"
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "target": {
+    "kind": "parabank",
+    "loopback": true,
+    "origin": "http://127.0.0.1:8080/parabank",
+    "tomcat_version": "10.1.60",
+    "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
+    "war_sha256": "04b4c4782112257ad59ea432748704b7cee83efe8580b978ff4341c5398c97ac"
+  },
+  "trace": {
+    "completion_proof_present": true,
+    "decisions_used": 2,
+    "effect_states": [
+      "VERIFIED"
+    ],
+    "event_count": 1,
+    "event_ids": [
+      "event_1"
+    ],
+    "model_id": "codex-cli",
+    "source_types": [
+      "observed"
+    ],
+    "step_ids": [
+      "click_1"
+    ],
+    "trace_id": "trace_10f18c018ae02549",
+    "verified": true
+  },
+  "validation": {
+    "browser_version": "153.0.8010.53",
+    "independent_oracle_match": true,
+    "runtime_fingerprint": {
+      "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
+      "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
+      "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
+      "source_sha256": "6884e875346b88dfba691702dbfa8174d19df67632dd1fde0526f3cd3e8715d8"
+    },
+    "status": "SUCCESS",
+    "validation_run_ref": "run_a5ce93086e6c9aa0"
+  }
+}

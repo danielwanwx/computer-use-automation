@@ -276,7 +276,15 @@ def test_native_offline_discovery_validation_approval_and_cross_client_replay(
                 raise AssertionError("a synthetic account ID or credential reached persisted evidence")
 
 
-async def _run_native_discovery(*, account_id, origin, target_revision, deployment_root):
+async def _run_native_discovery(
+    *,
+    account_id,
+    origin,
+    target_revision,
+    deployment_root,
+    decision_backend=None,
+    reviewer_ref="reviewer_native_test_fixture",
+):
     __tracebackhide__ = True
     manager = SessionManager(
         (
@@ -299,7 +307,7 @@ async def _run_native_discovery(*, account_id, origin, target_revision, deployme
         handle = await manager.prepare("alpha")
         state = await manager.get_state(handle.session_id)
         actor = state.actor
-        backend = _NativeScriptedTestBackend()
+        backend = decision_backend or _NativeScriptedTestBackend()
         run_id = evidence.register_run(
             RunMetadata(
                 mode=RunMode.DISCOVERY,
@@ -326,7 +334,7 @@ async def _run_native_discovery(*, account_id, origin, target_revision, deployme
             policy_context=policy,
         )
         blueprint = parabank_savings_balance_blueprint(
-            reviewer_ref="reviewer_native_test_fixture",
+            reviewer_ref=reviewer_ref,
             capability_version="1.0.0",
         )
         gateway = ExecutionGateway(manager, surface, PolicyEngine(), evidence)
@@ -353,7 +361,7 @@ async def _run_native_discovery(*, account_id, origin, target_revision, deployme
         if not isinstance(backend_account, dict):
             raise AssertionError("local backend oracle record has an invalid shape")
         bundle = CapabilityCompiler().compile(outcome.trace, blueprint)
-        return outcome, bundle, backend_account, backend.calls
+        return outcome, bundle, backend_account, getattr(backend, "calls", None)
     finally:
         if actor is not None and run_id is not None and actor.active_run_id == run_id:
             await actor.finish_run(run_id)

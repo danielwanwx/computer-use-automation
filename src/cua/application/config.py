@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,12 @@ from cua.sessions.manager import PrincipalSpec
 
 DEFAULT_TARGET_ORIGIN = "http://127.0.0.1:8080/parabank"
 DEFAULT_TARGET_REVISION = "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+
+
+class ProviderMode(StrEnum):
+    DISABLED = "disabled"
+    CODEX = "codex"
+    OPENAI = "openai"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +51,8 @@ class ApplicationConfig:
     operator_bind: str = "127.0.0.1"
     operator_port: int = 8765
     operator_token: SecretStr | None = None
+    provider: ProviderMode | str | None = None
+    codex_executable: tuple[str, ...] = ("codex",)
 
     def __post_init__(self) -> None:
         root = Path(self.data_root).expanduser().resolve()
@@ -71,12 +80,30 @@ class ApplicationConfig:
             raise ValueError("target revision must be an immutable commit SHA")
         if type(self.provider_enabled) is not bool or type(self.headless) is not bool:
             raise ValueError("provider and browser flags must be booleans")
+        try:
+            provider = ProviderMode(self.provider) if self.provider is not None else (
+                ProviderMode.OPENAI if self.provider_enabled else ProviderMode.DISABLED
+            )
+        except ValueError:
+            raise ValueError("provider mode is invalid") from None
+        if provider is ProviderMode.DISABLED and self.provider_enabled:
+            raise ValueError("disabled provider cannot be enabled")
+        object.__setattr__(self, "provider", provider)
+        object.__setattr__(self, "provider_enabled", provider is not ProviderMode.DISABLED)
         if self.provider_model is not None and re.fullmatch(
             r"[A-Za-z0-9._:-]{1,96}", self.provider_model, re.ASCII
         ) is None:
             raise ValueError("provider model identifier is invalid")
-        if self.provider_enabled and self.provider_model is None:
+        if provider is ProviderMode.OPENAI and self.provider_model is None:
             raise ValueError("an enabled provider requires a configured model")
+        executable = (
+            (self.codex_executable,)
+            if isinstance(self.codex_executable, str)
+            else tuple(self.codex_executable)
+        )
+        if not executable or any(not isinstance(item, str) or not item for item in executable):
+            raise ValueError("codex executable is invalid")
+        object.__setattr__(self, "codex_executable", executable)
         if self.browser_channel not in {"chrome", "msedge"}:
             raise ValueError("browser channel is not allowlisted")
         if type(self.browser_timeout_ms) is not int or not 100 <= self.browser_timeout_ms <= 60_000:
@@ -144,6 +171,10 @@ class ApplicationConfig:
     def operator_origin(self) -> str:
         return f"http://{self.operator_bind}:{self.operator_port}"
 
+    @property
+    def provider_mode(self) -> ProviderMode:
+        return ProviderMode(self.provider)
+
     @classmethod
     def from_environment(
         cls,
@@ -179,6 +210,11 @@ class ApplicationConfig:
             validation_fixtures=tuple(fixtures),
             provider_enabled=_env_bool(values.get("CUA_PROVIDER_ENABLED", "false")),
             provider_model=values.get("CUA_PROVIDER_MODEL") or None,
+            provider=(
+                values.get("CUA_PROVIDER")
+                or ("openai" if _env_bool(values.get("CUA_PROVIDER_ENABLED", "false")) else "disabled")
+            ),
+            codex_executable=_json_argv(values.get("CUA_CODEX_EXECUTABLE_JSON", "")) or ("codex",),
             browser_channel=values.get("CUA_BROWSER_CHANNEL", "chrome"),
             headless=_env_bool(values.get("CUA_BROWSER_HEADLESS", "true")),
             validation_oracle_command=command,

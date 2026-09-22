@@ -16,7 +16,7 @@ from typing import Awaitable, Callable, Mapping
 
 from pydantic import SecretStr, ValidationError
 
-from cua.application.config import ApplicationConfig
+from cua.application.config import ApplicationConfig, ProviderMode
 from cua.application.handoff import ApplicationHandoffCoordinator
 from cua.application.oracle import SubprocessValidationOracle
 from cua.application.contracts import (
@@ -58,7 +58,7 @@ from cua.execution import (
     InvocationResult,
     InvocationStatus,
 )
-from cua.llm.decisions import DecisionBackend, OpenAIResponsesDecisionBackend
+from cua.llm.decisions import CodexDecisionBackend, DecisionBackend, OpenAIResponsesDecisionBackend
 from cua.handoff import HandoffError, HandoffService, HandoffState, InterventionView
 from cua.models.bundles import BundleReference
 from cua.models.qualification import ValidationQualification
@@ -188,9 +188,15 @@ class ApplicationService:
         validation_oracle: ValidationOracle | None = None,
     ) -> ApplicationService:
         """Create the production composition without starting a browser or provider."""
-        if config.provider_enabled:
+        if config.provider_mode is ProviderMode.OPENAI:
             if decision_backend is None:
-                decision_backend = OpenAIResponsesDecisionBackend(config.provider_model)
+                decision_backend = OpenAIResponsesDecisionBackend(config.provider_model or "")
+        elif config.provider_mode is ProviderMode.CODEX:
+            if decision_backend is None:
+                decision_backend = CodexDecisionBackend(
+                    config.provider_model,
+                    executable=config.codex_executable,
+                )
         elif decision_backend is not None:
             raise ServiceError(409, "MODEL_NOT_CONFIGURED")
         if validation_oracle is None and config.validation_oracle_command is not None:
@@ -1115,7 +1121,7 @@ class ApplicationService:
         return self._decision_backend.model_id
 
     def _require_discovery_provider(self) -> None:
-        if not self._config.provider_enabled:
+        if self._config.provider_mode is ProviderMode.DISABLED:
             raise ServiceError(503, "MODEL_NOT_CONFIGURED")
         if self._decision_backend is None or isinstance(
             self._decision_backend, DisabledDecisionBackend

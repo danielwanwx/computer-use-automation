@@ -1,6 +1,6 @@
 # Computer-use automation
 
-This repository contains a local, reviewable UI capability runtime for the single capability `get_savings_balance(account_id)`. The target is the original Parasoft ParaBank application at immutable commit `ee82474be5f58bea3ddc8be0fd831072b00201cb`; the runtime does not replace or modify the target application. The current checkout has a deterministic kernel, native target testbed, safe application boundary, CLI, and release checks. Live provider discovery, a genuinely qualified native artifact, and real-person handoff remain explicitly unrun.
+This repository contains a local, reviewable UI capability runtime for the single capability `get_savings_balance(account_id)`. The target is the original Parasoft ParaBank application at immutable commit `ee82474be5f58bea3ddc8be0fd831072b00201cb`; the runtime does not replace or modify the target application. The current checkout has a deterministic kernel, native target testbed, safe application boundary, CLI, and release checks. An opt-in Codex saved-login lifecycle produced a value-safe temporary DRAFT and native replay diagnostics; V1 remains `NOT_RUN` because release approval and evidence promotion are incomplete. Real-person handoff remains explicitly unrun.
 
 ## Setup
 
@@ -21,7 +21,7 @@ The verification entrypoint runs the offline checks and prints the complete acce
 .venv/bin/python scripts/verify_release.py
 ```
 
-It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. V2 has a fingerprinted native loopback record using an injected offline scripted backend. V11 remains `NOT_RUN`: its clean-checkout record is a partial diagnostic until native no-model replay runs from a clean checkout with an approved real artifact.
+It prints JSON with V1–V12 statuses, source and runtime fingerprints, exact check commands, fixture paths, evidence paths, and the distinction between offline checks and native/manual cases. V1 has a saved-login Codex lifecycle diagnostic whose temporary approval is intentionally rejected for release acceptance. V2 has a current-source native loopback record using an injected offline scripted backend. V11 remains `NOT_RUN`: its clean-checkout record is a partial diagnostic until native no-model replay runs from a clean checkout with an approved real artifact.
 
 ## Native ParaBank testbed
 
@@ -68,18 +68,31 @@ export CUA_VALIDATION_FIXTURES_JSON='{"synthetic_beta":"CUA_VALIDATION_ACCOUNT_I
 export CUA_VALIDATION_ACCOUNT_ID='set-from-the-local-seed-manifest'
 export CUA_VALIDATION_ORACLE_COMMAND_JSON='[".venv/bin/python","-m","testbed.oracle"]'
 export CUA_OPERATOR_TOKEN='choose-a-local-token'
-export CUA_PROVIDER_ENABLED=false
+export CUA_PROVIDER=disabled
 ```
 
-The validation account value must be a savings account belonging to the server-only validation principal and should be read from the local seed manifest without echoing it. Do not put credential or account values in `CUA_PRINCIPALS_JSON`, committed files, URLs, or shell history. To enable live discovery, configure the server-owned provider settings and put the credential in the process environment or a secret manager; do not commit or print it:
+The validation account value must be a savings account belonging to the server-only validation principal and should be read from the local seed manifest without echoing it. Do not put credential or account values in `CUA_PRINCIPALS_JSON`, committed files, URLs, or shell history. Provider selection is server-owned:
 
 ```sh
-export CUA_PROVIDER_ENABLED=true
+export CUA_PROVIDER=disabled       # default; no discovery backend
+# or:
+export CUA_PROVIDER=codex          # uses the saved local Codex/ChatGPT login
+# omit CUA_PROVIDER_MODEL to use the saved-login CLI default
+# or:
+export CUA_PROVIDER=openai         # requires the official API credential below
 export CUA_PROVIDER_MODEL=<server-approved-model-id>
 export OPENAI_API_KEY=<secret-in-the-process-environment>
 ```
 
-The provider path is opt-in and unverified in this checkout. The discovery loop is constrained by the ParaBank profile, typed action space, policy, and current safe observation; it cannot invent arbitrary browser operations. The capability compiler also requires human-authored blueprint metadata, including the reviewer-added overview anchor and declared membership, extraction, and final verification checkpoints. The V2 test uses a scripted offline decision backend and therefore does not count as provider-backed V1 discovery.
+`CUA_PROVIDER_ENABLED=false` remains accepted as a legacy alias for `CUA_PROVIDER=disabled`; enabling that legacy flag selects OpenAI and still requires a model. `CUA_CODEX_EXECUTABLE_JSON` can override the server-owned Codex executable argv. The Codex backend invokes the installed CLI with the saved login, a temporary empty workspace, read-only sandboxing, ignored user/project rules, and no `OPENAI_API_KEY`, `CODEX_API_KEY`, `CODEX_ACCESS_TOKEN`, or `OPENAI_FEDERATION_RULE_ID` passed to the child. It does not read or copy the saved auth token.
+
+The exact opt-in saved-login discovery command used for the native diagnostic is:
+
+```sh
+CUA_NATIVE_CODEX_LIVE=1 .venv/bin/python scripts/run_native_codex.py --json
+```
+
+It requires a healthy pinned loopback target and a pre-existing local `codex` login; it does not require or accept an API key. The installed CLI invocation uses `codex -a never exec ... --skip-git-repo-check -` internally. The discovery loop is constrained by the ParaBank profile, typed action space, policy, and current safe observation; it cannot invent arbitrary browser operations. The capability compiler also requires human-authored blueprint metadata, including the reviewer-added overview anchor and declared membership, extraction, and final verification checkpoints. The saved-login run produced two discovery decisions, a verified trace, a temporary DRAFT digest, and ten successful no-provider replay runs across two synthetic customers. Because the approval sidecar was temporary, this is a diagnostic and does not promote V1.
 
 Start the service and open the page at `http://127.0.0.1:8765/`:
 
@@ -113,24 +126,32 @@ JSON is printed by default. `run result` is an explicit command because results 
 
 ## Offline path and tests
 
-No live discovery is claimed without a provider. The offline path exercises typed traces, registry validation, model-free replay, policy/evidence boundaries, the independent oracle transport, the web contract, and CLI HTTP behavior:
+The offline path exercises typed traces, registry validation, model-free replay, policy/evidence boundaries, the independent oracle transport, the web contract, and CLI HTTP behavior:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider -q
 ```
 
-Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. The committed `artifacts/index.json` remains empty because no live provider discovery has produced a releasable capability. `evidence/index.json` records the case-specific V2 native loopback replay and a partial V11 clean-checkout diagnostic; neither entry is a live provider artifact or a real-person takeover.
+Native tests are opt-in and require the prepared target, seeded credentials, and a supported browser. `artifacts/index.json` contains the value-safe DRAFT exported by the saved-login Codex diagnostic; its temporary approval sidecar is not committed, so it is not an approved release capability. `evidence/index.json` records the V1 diagnostic, current-source V2 native loopback replay, and partial V11 clean-checkout diagnostic. V9 remains a real-person takeover case and is unrun.
 
 The shortest no-key replay check is the offline model-free suite:
 
 ```sh
 unset OPENAI_API_KEY
-export CUA_PROVIDER_ENABLED=false
+export CUA_PROVIDER=disabled
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -p no:cacheprovider tests/test_replay.py
 ```
 
-This does not create an approved artifact or prove native V3/V11. A native no-key replay requires a separately approved real artifact and a clean-checkout run; that evidence is still missing. The shortest live-discovery attempt is `CUA_PROVIDER_ENABLED=true CUA_PROVIDER_MODEL=<server-approved-model-id> OPENAI_API_KEY=<secret-in-environment> .venv/bin/cua serve`, followed by Prepare and Discover in the operation page. It remains unverified and no provider call was made for this release.
+This does not create an approved artifact or prove native V3/V11. A native no-key replay requires a separately approved real artifact and a clean-checkout run; that evidence is still missing.
+The no-model native reviewer path is separate from discovery and never imports a model backend:
+
+```sh
+CUA_NATIVE_REVIEW=1 .venv/bin/python scripts/review_native_bundle.py \
+  --artifact artifacts/get_savings_balance-1.0.0.json
+```
+
+It validates and replays the value-safe DRAFT through a fresh temporary registry using the independent oracle. It is not V11 evidence until the artifact is approved, the checkout is clean, and the native no-model replay is recorded from that clean checkout. The shortest live-discovery attempt through the server is `CUA_PROVIDER=codex .venv/bin/cua serve`, after a saved local Codex login; OpenAI mode instead uses `CUA_PROVIDER=openai` and `OPENAI_API_KEY`. Neither command alone promotes V1.
 
 ## Status and scope
 
-The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 has matching fingerprinted evidence; V11 remains `NOT_RUN` because its clean-checkout result is diagnostic only. V1, V3–V10, and V12 also remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. Repository publication and visibility are external distribution state and do not count as V1–V12 acceptance evidence.
+The seven-heading release report is in [REPORT.md](REPORT.md). The module map and deviations are in [DESIGN.md](DESIGN.md). The machine-readable acceptance report is produced by `scripts/verify_release.py`. V2 has matching current-source fingerprinted evidence; V1 remains `NOT_RUN` because its saved-login result is only a temporary DRAFT diagnostic. V11 remains `NOT_RUN` because its clean-checkout result is diagnostic only. V3–V10 and V12 also remain `NOT_RUN`, including V9 for the required real-person takeover. The report separately records offline contract-check results and never promotes them to native/live acceptance. Repository publication and visibility are external distribution state and do not count as V1–V12 acceptance evidence.

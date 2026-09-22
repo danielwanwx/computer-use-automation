@@ -13,7 +13,10 @@ from dataclasses import dataclass
 import json
 import os
 import re
-from typing import Awaitable, Callable, Literal, Mapping, Protocol
+from pathlib import Path
+import signal
+import tempfile
+from typing import Awaitable, Callable, Literal, Mapping, Protocol, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -391,3 +394,440 @@ def _validate_decision_envelope(value: object) -> Decision:
 
 def _nonnegative_int(value: object) -> int | None:
     return value if type(value) is int and value >= 0 else None
+
+
+class CodexDecisionBackend:
+    """Use the installed Codex CLI and its saved ChatGPT login for one choice.
+
+    The subprocess receives only a redacted :class:`SafeDecisionRequest`.  It is
+    started in an empty temporary directory with user configuration and project
+    rules disabled.  Authentication is resolved by the CLI from its saved login;
+    provider API-key variables are deliberately removed from the child environment.
+    """
+
+    _DEFAULT_MODEL_ID = "codex-cli"
+    _MAX_PROMPT_BYTES = 64 * 1024
+    _MAX_OUTPUT_BYTES = 32 * 1024
+    _MAX_RETRIES = 2
+    # The CLI uses these as global options, so they must remain before the
+    # ``exec`` subcommand.  The browser subfeatures are included explicitly:
+    # the installed CLI exposes them separately and disabling only the parent
+    # feature is not a sufficient capability boundary.
+    _DISABLED_FEATURES = (
+        "shell_tool",
+        "unified_exec",
+        "apps",
+        "browser_use",
+        "browser_use_external",
+        "browser_use_full_cdp_access",
+        "computer_use",
+        "plugins",
+        "multi_agent",
+        "hooks",
+    )
+    # Saved-login execution needs the user's Codex home and the ordinary
+    # process/runtime locations.  An allowlist is safer than trying to keep a
+    # growing denylist of credential-like environment variable names.
+    _CHILD_ENV_KEYS = frozenset(
+        {
+            "HOME",
+            "CODEX_HOME",
+            "PATH",
+            "TMPDIR",
+            "TMP",
+            "TEMP",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE",
+            "LC_MESSAGES",
+            "LC_COLLATE",
+            "LC_MONETARY",
+            "LC_NUMERIC",
+            "LC_TIME",
+            "TERM",
+            "NO_COLOR",
+            "SSL_CERT_FILE",
+            "SSL_CERT_DIR",
+            "XDG_CONFIG_HOME",
+            "XDG_CACHE_HOME",
+            "XDG_DATA_HOME",
+        }
+    )
+
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        executable: str | Sequence[str] = "codex",
+        max_retries: int = 0,
+        max_timeout_seconds: float = 180.0,
+        max_output_bytes: int = _MAX_OUTPUT_BYTES,
+    ) -> None:
+        if model is not None and not _MODEL_ID.fullmatch(model):
+            raise ValueError("model identifier is invalid")
+        if isinstance(executable, str):
+            executable_parts = (executable,)
+        else:
+            executable_parts = tuple(executable)
+        if not executable_parts or any(not isinstance(item, str) or not item for item in executable_parts):
+            raise ValueError("codex executable is invalid")
+        if isinstance(max_retries, bool) or not isinstance(max_retries, int) or not 0 <= max_retries <= self._MAX_RETRIES:
+            raise ValueError("codex retry limit is invalid")
+        if isinstance(max_timeout_seconds, bool) or not isinstance(max_timeout_seconds, (int, float)) or not 0 < max_timeout_seconds <= 1_800:
+            raise ValueError("codex timeout limit is invalid")
+        if isinstance(max_output_bytes, bool) or not isinstance(max_output_bytes, int) or not 256 <= max_output_bytes <= 1_048_576:
+            raise ValueError("codex output limit is invalid")
+        self._model = model or self._DEFAULT_MODEL_ID
+        self._model_argument = model
+        self._executable = executable_parts
+        self._max_retries = max_retries
+        self._max_timeout_seconds = float(max_timeout_seconds)
+        self._max_output_bytes = max_output_bytes
+
+    @property
+    def model_id(self) -> str:
+        return self._model
+
+    def __repr__(self) -> str:
+        executable = self._executable[0]
+        return f"{type(self).__name__}(model={self._model!r}, executable={executable!r})"
+
+    async def choose(
+        self,
+        request: SafeDecisionRequest,
+        *,
+        timeout_seconds: float,
+    ) -> DecisionReply:
+        try:
+            request = SafeDecisionRequest.model_validate(request.model_dump(mode="python"))
+        except (AttributeError, ValidationError):
+            raise DecisionProviderError("REQUEST_INVALID") from None
+        if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds <= 0:
+            raise DecisionProviderError("PROVIDER_TIMEOUT")
+        prompt = self._prompt(request)
+        if len(prompt) > self._MAX_PROMPT_BYTES:
+            raise DecisionProviderError("REQUEST_TOO_LARGE")
+        deadline = asyncio.get_running_loop().time() + min(
+            float(timeout_seconds), self._max_timeout_seconds
+        )
+        last_error: DecisionProviderError | None = None
+        for attempt in range(self._max_retries + 1):
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise DecisionProviderError("PROVIDER_TIMEOUT")
+            try:
+                decision, input_tokens, output_tokens = await self._run_once(prompt, remaining)
+            except DecisionProviderError as error:
+                last_error = error
+                if error.code not in {"PROVIDER_UNAVAILABLE", "PROVIDER_TIMEOUT"} or attempt >= self._max_retries:
+                    raise
+                continue
+            return DecisionReply(
+                decision=decision,
+                model_id=self._model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+        raise last_error or DecisionProviderError("PROVIDER_UNAVAILABLE")
+
+    def _prompt(self, request: SafeDecisionRequest) -> bytes:
+        safe_payload = json.dumps(
+            request.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return (
+            "Choose exactly one next typed decision for this read-only savings-balance task. "
+            "Use only the listed control_ref values and return one JSON object matching the "
+            "provided output schema. Never invent selectors, account values, credentials, or work.\n"
+            + safe_payload
+        ).encode("utf-8")
+
+    async def _run_once(
+        self,
+        prompt: bytes,
+        timeout_seconds: float,
+    ) -> tuple[Decision, int | None, int | None]:
+        schema_path: str | None = None
+        output_path: str | None = None
+        try:
+            with tempfile.TemporaryDirectory(prefix="cua-codex-work-") as work_dir:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", suffix=".json", delete=False
+                ) as schema_file:
+                    json.dump(DECISION_RESPONSE_SCHEMA, schema_file, sort_keys=True)
+                    schema_path = schema_file.name
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", suffix=".json", delete=False
+                ) as output_file:
+                    output_path = output_file.name
+                # ``-a never`` is the installed CLI's approval flag.  It is a
+                # global option and must precede the ``exec`` subcommand.  Keep
+                # the stdin marker last; some CLI versions parse options after
+                # the marker as prompt input rather than exec options.
+                command = [*self._executable, "-a", "never"]
+                for feature in self._DISABLED_FEATURES:
+                    command.extend(("--disable", feature))
+                command.append("exec")
+                if self._model_argument is not None:
+                    command.extend(("--model", self._model_argument))
+                command.extend(
+                    (
+                        "--output-schema",
+                        schema_path,
+                        "--output-last-message",
+                        output_path,
+                        "--json",
+                        "--ephemeral",
+                        "--ignore-user-config",
+                        "--ignore-rules",
+                        "--skip-git-repo-check",
+                        "--sandbox",
+                        "read-only",
+                        "--cd",
+                        work_dir,
+                    )
+                )
+                command.append("-")
+                environment = {
+                    key: value
+                    for key, value in os.environ.items()
+                    if key in self._CHILD_ENV_KEYS
+                }
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        *command,
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=work_dir,
+                        env=environment,
+                        start_new_session=True,
+                    )
+                except (FileNotFoundError, OSError):
+                    raise DecisionProviderError("PROVIDER_UNAVAILABLE") from None
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        _communicate_bounded(process, prompt, self._max_output_bytes),
+                        timeout=timeout_seconds,
+                    )
+                except (TimeoutError, asyncio.TimeoutError):
+                    await _terminate_process_group(process)
+                    raise DecisionProviderError("PROVIDER_TIMEOUT") from None
+                except asyncio.CancelledError:
+                    await _terminate_process_group(process)
+                    raise
+                except DecisionProviderError:
+                    raise
+                except Exception:
+                    await _terminate_process_group(process)
+                    raise DecisionProviderError("PROVIDER_UNAVAILABLE") from None
+                if process.returncode != 0:
+                    raise DecisionProviderError(
+                        _classify_codex_failure(stderr.decode("utf-8", "replace"), stdout)
+                    )
+                raw = _read_last_message(output_path, self._max_output_bytes)
+                if raw is None:
+                    raw = _extract_codex_output(stdout)
+                input_tokens, output_tokens = _extract_codex_usage(stdout)
+                if raw is None:
+                    raise DecisionProviderError("MODEL_RESPONSE_INVALID")
+                try:
+                    value = json.loads(raw)
+                except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+                    raise DecisionProviderError("MODEL_RESPONSE_INVALID") from None
+                try:
+                    return _validate_decision_envelope(value), input_tokens, output_tokens
+                except DecisionProviderError:
+                    raise
+        finally:
+            for path in (schema_path, output_path):
+                if path:
+                    try:
+                        Path(path).unlink()
+                    except FileNotFoundError:
+                        pass
+                    except OSError:
+                        pass
+
+
+async def _communicate_bounded(
+    process: asyncio.subprocess.Process,
+    prompt: bytes,
+    max_bytes: int,
+) -> tuple[bytes, bytes]:
+    if process.stdin is None or process.stdout is None or process.stderr is None:
+        raise DecisionProviderError("PROVIDER_UNAVAILABLE")
+    try:
+        process.stdin.write(prompt)
+        await process.stdin.drain()
+    except (BrokenPipeError, ConnectionResetError, OSError):
+        # A CLI that closes stdin before reading the prompt must not leave a
+        # process group behind, and the transport error must not escape as a
+        # raw BrokenPipeError to callers.
+        await _terminate_process_group(process)
+        raise DecisionProviderError("PROVIDER_UNAVAILABLE") from None
+    finally:
+        try:
+            process.stdin.close()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+    stdout_task = asyncio.create_task(_read_bounded(process.stdout, max_bytes))
+    stderr_task = asyncio.create_task(_read_bounded(process.stderr, max_bytes))
+    try:
+        await process.wait()
+        return await stdout_task, await stderr_task
+    except BaseException:
+        for task in (stdout_task, stderr_task):
+            task.cancel()
+        await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+        raise
+
+
+async def _read_bounded(stream: asyncio.StreamReader, max_bytes: int) -> bytes:
+    captured = bytearray()
+    while True:
+        chunk = await stream.read(4096)
+        if not chunk:
+            return bytes(captured)
+        if len(captured) < max_bytes:
+            captured.extend(chunk[: max_bytes - len(captured)])
+
+
+async def _terminate_process_group(process: asyncio.subprocess.Process) -> None:
+    pid = process.pid
+    if pid is None:
+        return
+    leader_running = process.returncode is None
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, OSError):
+        if leader_running:
+            try:
+                process.terminate()
+            except (ProcessLookupError, OSError):
+                pass
+    try:
+        if leader_running:
+            await asyncio.wait_for(process.wait(), timeout=0.5)
+    except (TimeoutError, asyncio.TimeoutError):
+        pass
+    # The leader may have exited while descendants still hold the process
+    # group and the stdio pipes.  Always attempt SIGKILL after the grace
+    # period; checking returncode first would leak exactly that case.
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        if process.returncode is None:
+            try:
+                process.kill()
+            except (ProcessLookupError, OSError):
+                return
+    if process.returncode is None:
+        try:
+            await process.wait()
+        except (ProcessLookupError, OSError):
+            pass
+
+
+def _read_last_message(path: str | None, max_bytes: int) -> bytes | None:
+    if not path:
+        return None
+    try:
+        with open(path, "rb") as stream:
+            raw = stream.read(max_bytes + 1)
+    except OSError:
+        return None
+    if len(raw) > max_bytes:
+        raise DecisionProviderError("RESPONSE_TOO_LARGE")
+    return raw.strip() or None
+
+
+def _extract_codex_output(stdout: bytes) -> bytes | None:
+    text = stdout.decode("utf-8", "replace").strip()
+    if not text:
+        return None
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        value = None
+    if isinstance(value, dict) and "operation" in value:
+        return json.dumps(value).encode("utf-8")
+    for line in reversed(text.splitlines()):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        candidate = _find_decision_payload(event)
+        if candidate is not None:
+            return candidate
+    return None
+
+
+def _extract_codex_usage(stdout: bytes) -> tuple[int | None, int | None]:
+    """Read token usage from the CLI's terminal ``turn.completed`` event."""
+    for line in reversed(stdout.decode("utf-8", "replace").splitlines()):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, Mapping) or event.get("type") != "turn.completed":
+            continue
+        usage = event.get("usage")
+        if not isinstance(usage, Mapping):
+            continue
+        return (
+            _nonnegative_int(usage.get("input_tokens")),
+            _nonnegative_int(usage.get("output_tokens")),
+        )
+    return None, None
+
+
+def _find_decision_payload(value: object) -> bytes | None:
+    if isinstance(value, dict) and set(value) == set(DECISION_RESPONSE_SCHEMA["properties"]):
+        return json.dumps(value).encode("utf-8")
+    if isinstance(value, dict):
+        for key in ("text", "output_text", "message", "content", "item", "result"):
+            if key in value:
+                found = _find_decision_payload(value[key])
+                if found is not None:
+                    return found
+    if isinstance(value, list):
+        for item in reversed(value):
+            found = _find_decision_payload(item)
+            if found is not None:
+                return found
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        return _find_decision_payload(parsed)
+    return None
+
+
+def _classify_codex_failure(stderr: str, stdout: bytes) -> str:
+    text = (stderr + "\n" + stdout.decode("utf-8", "replace")).lower()
+    if any(
+        token in text
+        for token in (
+            "not logged in",
+            "login required",
+            "please log in",
+            "run codex login",
+            "no access token",
+            "not authenticated",
+            "authentication required",
+            "unauthorized",
+            "401",
+        )
+    ):
+        return "PROVIDER_CREDENTIAL_MISSING"
+    if any(token in text for token in ("quota", "rate limit", "too many requests", "usage limit", "insufficient quota")):
+        return "PROVIDER_QUOTA_EXCEEDED"
+    if any(token in text for token in ("timed out", "timeout")):
+        return "PROVIDER_TIMEOUT"
+    if any(token in text for token in ("invalid output", "invalid json", "schema validation", "structured output")):
+        return "MODEL_RESPONSE_INVALID"
+    return "PROVIDER_UNAVAILABLE"

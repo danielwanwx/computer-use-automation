@@ -2,6 +2,7 @@
 
 from cua.llm.decisions import (
     DECISION_RESPONSE_SCHEMA,
+    CodexDecisionBackend,
     DecisionBackend,
     DecisionProviderError,
     DecisionReply,
@@ -15,6 +16,7 @@ from cua.llm.decisions import (
 
 __all__ = [
     "DECISION_RESPONSE_SCHEMA",
+    "CodexDecisionBackend",
     "DecisionBackend",
     "DecisionProviderError",
     "DecisionReply",

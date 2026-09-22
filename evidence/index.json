@@ -3,12 +3,80 @@
   "status": "PARTIAL_RELEASE_EVIDENCE",
   "entries": [
     {
+      "case_id": "V1",
+      "status": "PARTIAL_DIAGNOSTIC",
+      "acceptance_status": "NOT_RUN",
+      "evidence_type": "codex_saved_login_lifecycle",
+      "recorded_on": "2026-09-21",
+      "source_fingerprint": "af89d51542e80aee8d8a0577b2ef891efea6c0a691709fcd8a95408dee0fb75b",
+      "repository_commit": "40b2808f795aaab322dc5a7515c1c708afc7bff5",
+      "repository_state": "working_tree_fingerprint_bound",
+      "provider": {
+        "mode": "codex_saved_login",
+        "model_id": "codex-cli",
+        "provider_calls": 2,
+        "discovery_decisions": 2,
+        "replay_provider_calls": 0,
+        "credentials": "removed_from_provider_child"
+      },
+      "trace": {
+        "trace_id": "trace_10f18c018ae02549",
+        "step_count": 1,
+        "verified": true,
+        "completion_proof_present": true
+      },
+      "capability": {
+        "reference": "capability/get_savings_balance@1.0.0",
+        "digest": "sha256:62e5c052f54f110d9960a66e1f4d7bf91175f48fa8c455af6c7f06a9082e9495",
+        "trace_derived": true
+      },
+      "artifact": {
+        "path": "artifacts/get_savings_balance-1.0.0.json",
+        "reference": "capability/get_savings_balance@1.0.0",
+        "digest": "sha256:62e5c052f54f110d9960a66e1f4d7bf91175f48fa8c455af6c7f06a9082e9495",
+        "lifecycle": "DRAFT",
+        "sidecar_committed": false,
+        "provenance_types": ["declared", "observed", "reviewer_added"],
+        "trace_id": "trace_10f18c018ae02549"
+      },
+      "validation": {
+        "status": "SUCCESS",
+        "independent_oracle_match": true,
+        "runtime_fingerprint_source_sha256": "6884e875346b88dfba691702dbfa8174d19df67632dd1fde0526f3cd3e8715d8"
+      },
+      "runtime_fingerprint": {
+        "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
+        "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
+        "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
+        "source_sha256": "6884e875346b88dfba691702dbfa8174d19df67632dd1fde0526f3cd3e8715d8"
+      },
+      "target": {
+        "kind": "parabank",
+        "origin": "http://127.0.0.1:8080/parabank",
+        "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
+        "loopback": true,
+        "tomcat_version": "10.1.60",
+        "war_sha256": "04b4c4782112257ad59ea432748704b7cee83efe8580b978ff4341c5398c97ac"
+      },
+      "replay": {
+        "customers": 2,
+        "runs_per_customer": 5,
+        "successful_replays": 10,
+        "independent_oracle_match": true,
+        "balance_change_observed": true,
+        "provider_calls": 0,
+        "credentials": "removed"
+      },
+      "source": "Opt-in native Codex saved-login lifecycle. The value-safe artifact was approved only in a temporary registry; no release sidecar was committed."
+    },
+    {
       "case_id": "V2",
       "status": "PASS",
       "evidence_type": "native_loopback",
       "recorded_on": "2026-09-21",
-      "repository_commit": "2d9a009d6ef294341ba5f5547d05b525f49aec41",
-      "source_fingerprint": "e37eb3c42be96e159e9a2b5438452e170198ba74e5c43f98353eec07b3c2befe",
+      "repository_commit": "40b2808f795aaab322dc5a7515c1c708afc7bff5",
+      "repository_state": "working_tree_fingerprint_bound",
+      "source_fingerprint": "d8ed20b770366a61d87a314d5a10aca27649eb2e96cb12808e8c427c2193edf9",
       "target": {
         "kind": "parabank",
         "origin": "http://127.0.0.1:8080/parabank",
@@ -23,7 +91,7 @@
       "test": {
         "nodeid": "tests/test_discovery_native.py::test_native_offline_discovery_validation_approval_and_cross_client_replay",
         "passed": true,
-        "duration_seconds": 27.31
+        "duration_seconds": 25.0
       },
       "replay": {
         "discovery": "SUCCESS",
@@ -76,5 +144,5 @@
       "source": "fresh checkout setup and offline suite diagnostic; this does not prove native no-model replay from an approved real artifact"
     }
   ],
-  "note": "V2 records a native loopback run with an injected offline scripted backend. V11 records only a clean-checkout/offline diagnostic and remains NOT_RUN until native no-model replay uses an approved real artifact. Live provider discovery, real-person takeover, and browser end-to-end acceptance remain unrun."
+  "note": "V1 records an opt-in Codex saved-login lifecycle diagnostic whose temporary DRAFT artifact is intentionally rejected for release acceptance. V2 records a current-source native loopback run with an injected offline scripted backend. V11 records only a clean-checkout/offline diagnostic and remains NOT_RUN until native no-model replay uses an approved real artifact. Real-person takeover and browser end-to-end acceptance remain unrun."
 }
