@@ -6,7 +6,7 @@
         "sidecar_committed": false
       },
       "artifact_path": "artifacts/get_savings_balance-1.0.0.json",
-      "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+      "digest": "sha256:c893e0c1b7653a307fb8467f91395514a6e25e68260e3d8a0241b9ae81fa2b05",
       "lifecycle": "DRAFT",
       "name": "get_savings_balance",
       "provenance": {
@@ -16,7 +16,7 @@
           "observed",
           "reviewer_added"
         ],
-        "trace_id": "trace_8df88c50eb28650a"
+        "trace_id": "trace_81d55a2a7880ab26"
       },
       "qualification": {
         "browser_version": "153.0.8010.54",
@@ -25,9 +25,9 @@
           "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
           "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
           "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
-          "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+          "source_sha256": "848b601228b2999aadc901603e8448c5c7b1909b7e4db9aee2178a00e2e3df0a"
         },
-        "validation_run_ref": "run_8fc01a81255e4841"
+        "validation_run_ref": "run_4e07efafb459ce1f"
       },
       "reference": "capability/get_savings_balance@1.0.0",
       "replay": {
@@ -43,7 +43,7 @@
         "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
         "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
         "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
-        "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+        "source_sha256": "848b601228b2999aadc901603e8448c5c7b1909b7e4db9aee2178a00e2e3df0a"
       },
       "target": {
         "kind": "parabank",
@@ -51,7 +51,7 @@
         "origin": "http://127.0.0.1:8080/parabank",
         "tomcat_version": "10.1.60",
         "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
-        "war_sha256": "e902cacda1670f87e6fd1c75c5c987acd4a531a74919aafa1daf7adcd8ddd5f7"
+        "war_sha256": "e8e052495a2bd884094a2618dc9f660c9832649a4841fdf85a50ff78e0aa011b"
       },
       "version": "1.0.0"
     }

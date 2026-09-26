@@ -463,9 +463,12 @@ class CodexDecisionBackend:
         max_retries: int = 0,
         max_timeout_seconds: float = 180.0,
         max_output_bytes: int = _MAX_OUTPUT_BYTES,
+        fallback_model: str | None = "gpt-5.5",
     ) -> None:
         if model is not None and not _MODEL_ID.fullmatch(model):
             raise ValueError("model identifier is invalid")
+        if fallback_model is not None and not _MODEL_ID.fullmatch(fallback_model):
+            raise ValueError("fallback model identifier is invalid")
         if isinstance(executable, str):
             executable_parts = (executable,)
         else:
@@ -484,6 +487,9 @@ class CodexDecisionBackend:
         self._max_retries = max_retries
         self._max_timeout_seconds = float(max_timeout_seconds)
         self._max_output_bytes = max_output_bytes
+        # The CLI's default model depends on the account; a ChatGPT login may not
+        # offer it. Without an explicit model, retry once on the fallback.
+        self._fallback_model = fallback_model if model is None else None
 
     @property
     def model_id(self) -> str:
@@ -519,6 +525,22 @@ class CodexDecisionBackend:
             try:
                 decision, input_tokens, output_tokens = await self._run_once(prompt, remaining)
             except DecisionProviderError as error:
+                if error.code == "MODEL_NOT_SUPPORTED" and self._fallback_model is not None:
+                    self._model = self._model_argument = self._fallback_model
+                    self._fallback_model = None
+                    try:
+                        decision, input_tokens, output_tokens = await self._run_once(
+                            prompt, deadline - asyncio.get_running_loop().time()
+                        )
+                    except DecisionProviderError as retry_error:
+                        error = retry_error
+                    else:
+                        return DecisionReply(
+                            decision=decision,
+                            model_id=self._model,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                        )
                 last_error = error
                 if error.code not in {"PROVIDER_UNAVAILABLE", "PROVIDER_TIMEOUT"} or attempt >= self._max_retries:
                     raise
@@ -811,6 +833,8 @@ def _find_decision_payload(value: object) -> bytes | None:
 
 def _classify_codex_failure(stderr: str, stdout: bytes) -> str:
     text = (stderr + "\n" + stdout.decode("utf-8", "replace")).lower()
+    if "model is not supported" in text or "not supported when using codex" in text:
+        return "MODEL_NOT_SUPPORTED"
     if any(
         token in text
         for token in (

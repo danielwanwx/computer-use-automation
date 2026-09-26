@@ -7,6 +7,7 @@ cannot accidentally make a model call.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import re
 import json
@@ -15,7 +16,7 @@ from pathlib import Path
 import secrets
 import subprocess
 import tempfile
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from cua.models.bundles import CapabilityBundle, BundleReference
 from cua.models.traces import VerifiedDiscoveryTrace
@@ -318,3 +319,26 @@ def contains_private_value(data: bytes, values: Iterable[bytes]) -> bool:
         elif value in data:
             return True
     return False
+
+
+@contextmanager
+def provider_call_trap(message: str) -> Iterator[list[int]]:
+    """Make any decision-backend call during validation or replay a hard failure."""
+    from cua.llm.decisions import CodexDecisionBackend, OpenAIResponsesDecisionBackend
+    from cua.llm.local_agents import _LocalAgentBackend
+
+    classes = (CodexDecisionBackend, OpenAIResponsesDecisionBackend, _LocalAgentBackend)
+    originals = [cls.choose for cls in classes]
+    calls: list[int] = []
+
+    async def trap(self, *args, **kwargs):
+        calls.append(1)
+        raise AssertionError(message)
+
+    for cls in classes:
+        cls.choose = trap
+    try:
+        yield calls
+    finally:
+        for cls, original in zip(classes, originals):
+            cls.choose = original

@@ -58,7 +58,13 @@ from cua.execution import (
     InvocationResult,
     InvocationStatus,
 )
-from cua.llm.decisions import CodexDecisionBackend, DecisionBackend, OpenAIResponsesDecisionBackend
+from cua.llm.decisions import (
+    CodexDecisionBackend,
+    DecisionBackend,
+    DecisionProviderError,
+    OpenAIResponsesDecisionBackend,
+)
+from cua.llm.local_agents import resolve_decision_backend
 from cua.handoff import HandoffError, HandoffService, HandoffState, InterventionView
 from cua.models.bundles import BundleReference
 from cua.models.qualification import ValidationQualification
@@ -197,6 +203,18 @@ class ApplicationService:
                     config.provider_model,
                     executable=config.codex_executable,
                 )
+        elif config.provider_mode in {ProviderMode.AUTO, ProviderMode.CLAUDE_CODE, ProviderMode.CURSOR}:
+            if decision_backend is None:
+                try:
+                    decision_backend, _ = resolve_decision_backend(
+                        config.provider_mode.value,
+                        model=config.provider_model,
+                        codex_executable=config.codex_executable,
+                    )
+                except DecisionProviderError:
+                    # Nothing to borrow on this machine; discovery reports
+                    # MODEL_NOT_CONFIGURED while replay keeps working.
+                    decision_backend = None
         elif decision_backend is not None:
             raise ServiceError(409, "MODEL_NOT_CONFIGURED")
         if validation_oracle is None and config.validation_oracle_command is not None:

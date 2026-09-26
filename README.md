@@ -10,7 +10,7 @@ An LLM works out how to complete a task in a legacy banking UI that has no API. 
 
 | Brief requirement | Where to look |
 |---|---|
-| Real LLM-driven discovery on a live UI | [`evidence/RUN_LOG.md` §1](evidence/RUN_LOG.md). It shows what the model saw at each step, what it chose, and why (`gpt-5.5-2026-04-23`). The raw records are in `evidence/live_run/`. |
+| Real LLM-driven discovery on a live UI | [`evidence/RUN_LOG.md` §1](evidence/RUN_LOG.md). It shows what the model saw at each step, what it chose, and why (Claude Code as the decision backend, `claude-opus-5-5`). The raw records are in `evidence/live_run/`. |
 | Structured, versioned artifact | [`artifacts/get_savings_balance-1.0.0.json`](artifacts/get_savings_balance-1.0.0.json) (canonical JSON, SHA-256 digest in [`artifacts/index.json`](artifacts/index.json)) |
 | Deterministic replay, no model | 10 replays across two customers the model never saw, with a deposit in between; 0 model calls |
 | Business outcomes vs. failures | Six replays in one reused session: success, `ACCOUNT_NOT_FOUND` ×2 (business outcome), wrong account type, malformed input (hard failures with the failing step), success again |
@@ -35,18 +35,30 @@ Start the target. The first `prepare` downloads the pinned ParaBank source plus 
 .venv/bin/python -m testbed.parabank health    # "ParaBank healthy on loopback"
 ```
 
-The only secret is `OPENAI_API_KEY`, and only discovery needs it. The demo scripts create throwaway synthetic customers with random passwords on each run. No credential is ever written to disk.
+### Choosing the model: no API key required
+
+Only discovery uses a model. Validation, replay, and handoff never do. Discovery needs **one** of the following, and `--provider auto` (the default) picks the first one available:
+
+| Mode | What you need | Notes |
+|---|---|---|
+| `openai` | `OPENAI_API_KEY` | pinned snapshot `gpt-5.5-2026-04-23`; used first when the key is set |
+| `claude-code` | Claude Code installed and signed in (`claude`) | uses your existing login; how the committed evidence was produced |
+| `codex` | Codex CLI installed and signed in (`codex`) | uses your ChatGPT login; falls back to `gpt-5.5` if the account does not offer the CLI's default model |
+| `cursor` | Cursor Agent CLI installed and signed in (`cursor-agent`) | same contract; not exercised on the author's machine |
+
+Whichever backend runs, it receives only the value-free decision request and returns one schema-checked decision. Each local agent CLI runs in an empty temporary directory with no tools and no project rules, hooks, or MCP servers; it sees only its own login, never another provider's key or the fixture credentials. Force a mode with `--provider` (scripts) or `CUA_PROVIDER` (service).
+
+The demo scripts create throwaway synthetic customers with random passwords on each run. No credential is ever written to disk.
 
 ## Demo path
 
 **1. Run the agent on a goal, then replay the result.** This command performs the whole lifecycle in one pass: it seeds four synthetic customers, runs LLM discovery, compiles the artifact, validates it on another customer against an independent oracle, approves it, and replays it with the model removed. Replay covers 10 success runs plus the error cases.
 
 ```sh
-export OPENAI_API_KEY=...
 CUA_LIVE=1 .venv/bin/python scripts/discover_and_replay.py --no-export
 ```
 
-It prints the model's decisions, the compiled step list, and every replay result. Without `--no-export`, the same command writes `artifacts/` and `evidence/`; that is how the committed evidence was produced. `--provider codex` uses a saved Codex CLI login instead of an API key.
+It prints which backend it chose, the model's decisions, the compiled step list, and every replay result. Without `--no-export`, the same command writes `artifacts/` and `evidence/`; that is how the committed evidence was produced (`--provider auto` with no key set, which resolved to Claude Code).
 
 **2. Replay the committed artifact with no model and no key.**
 
@@ -80,7 +92,7 @@ The operator page at `http://127.0.0.1:8765/` exposes the same sessions, capabil
 src/cua/
   surface/       Playwright adapter: page -> typed Observation / NormalizedView (no raw DOM leaves it)
   profiles/      per-app profile: routes, readiness rules, semantic locators  <- the per-surface seam
-  llm/           decision backends (OpenAI Responses, Codex CLI); strict JSON decisions
+  llm/           decision backends: OpenAI API, or a signed-in Claude Code / Codex / Cursor CLI; strict JSON decisions
   discovery/     goal binding, observe -> decide -> act loop, reviewer blueprint
   compiler/      verified trace + blueprint -> CapabilityBundle
   registry/      canonical digest, DRAFT -> VALIDATED -> APPROVED, runtime fingerprint pins

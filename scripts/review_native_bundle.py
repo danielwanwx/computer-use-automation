@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -27,7 +26,6 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from cua.execution.contracts import InvocationStatus
-from cua.llm import CodexDecisionBackend, OpenAIResponsesDecisionBackend
 from cua.models.bundles import BundleReference, CapabilityBundle
 from cua.models.qualification import ValidationQualification
 from cua.registry import BundleRegistry
@@ -38,6 +36,7 @@ from testbed.parabank import DEFAULT_ORIGIN, UPSTREAM_COMMIT, check_health
 from testbed.seed import seed
 
 from scripts.native_lifecycle_common import (
+    provider_call_trap,
     ARTIFACT_RELATIVE_PATH,
     contains_private_value,
     install_credentials,
@@ -53,25 +52,8 @@ from tests.test_discovery_native import (
 )
 
 
-@contextmanager
 def _provider_call_trap():
-    """Prove validation and replay do not silently call either provider."""
-
-    calls: list[int] = []
-    original_codex = CodexDecisionBackend.choose
-    original_openai = OpenAIResponsesDecisionBackend.choose
-
-    async def trap(self, *args, **kwargs):
-        calls.append(1)
-        raise AssertionError("native reviewer must not call a model provider")
-
-    CodexDecisionBackend.choose = trap
-    OpenAIResponsesDecisionBackend.choose = trap
-    try:
-        yield calls
-    finally:
-        CodexDecisionBackend.choose = original_codex
-        OpenAIResponsesDecisionBackend.choose = original_openai
+    return provider_call_trap("native reviewer must not call a model provider")
 
 
 def _load_bundle(path: Path) -> tuple[CapabilityBundle, BundleReference]:

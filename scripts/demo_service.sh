@@ -4,13 +4,13 @@
 #   discover (LLM) -> list -> validate (oracle) -> approve -> replay by name
 #   with a typed account_id -> read result -> replay an unknown account.
 #
-# Needs: a healthy local ParaBank (`python -m testbed.parabank start`) and
-# OPENAI_API_KEY. Creates throwaway synthetic customers; reseeds the target.
+# Needs: a healthy local ParaBank (`python -m testbed.parabank start`) and one
+# decision backend: OPENAI_API_KEY, or a signed-in Claude Code / Codex / Cursor CLI
+# (CUA_PROVIDER=auto picks one). Creates throwaway synthetic customers; reseeds the target.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY=.venv/bin/python
 CUA=.venv/bin/cua
-: "${OPENAI_API_KEY:?set OPENAI_API_KEY for the discovery step}"
 
 json() { "$PY" -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 secret() { "$PY" -c 'import secrets; print(secrets.token_hex(8))'; }
@@ -30,7 +30,7 @@ export CUA_VALIDATION_ACCOUNT_ID="$(account beta SAVINGS)"
 export CUA_VALIDATION_FIXTURES_JSON='{"beta":"CUA_VALIDATION_ACCOUNT_ID"}'
 export CUA_VALIDATION_ORACLE_COMMAND_JSON='[".venv/bin/python","-m","testbed.oracle"]'
 export CUA_OPERATOR_TOKEN="$(secret)"
-export CUA_PROVIDER=openai CUA_PROVIDER_MODEL="${CUA_PROVIDER_MODEL:-gpt-5.5-2026-04-23}"
+export CUA_PROVIDER="${CUA_PROVIDER:-auto}"
 export CUA_DATA_ROOT="$(mktemp -d)/cua"
 
 "$CUA" serve >"$CUA_DATA_ROOT.log" 2>&1 &

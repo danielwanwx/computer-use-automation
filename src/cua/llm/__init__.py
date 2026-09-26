@@ -13,8 +13,18 @@ from cua.llm.decisions import (
     SafeObservationSummary,
     SafeSignals,
 )
+from cua.llm.local_agents import (
+    PROVIDER_MODES,
+    ClaudeCodeDecisionBackend,
+    CursorAgentDecisionBackend,
+    resolve_decision_backend,
+)
 
 __all__ = [
+    "PROVIDER_MODES",
+    "ClaudeCodeDecisionBackend",
+    "CursorAgentDecisionBackend",
+    "resolve_decision_backend",
     "DECISION_RESPONSE_SCHEMA",
     "CodexDecisionBackend",
     "DecisionBackend",

@@ -26,6 +26,11 @@ class ProviderMode(StrEnum):
     DISABLED = "disabled"
     CODEX = "codex"
     OPENAI = "openai"
+    # Key-free modes borrow a locally signed-in coding agent (see cua.llm.local_agents).
+    CLAUDE_CODE = "claude-code"
+    CURSOR = "cursor"
+    # OPENAI_API_KEY if present, else the first installed claude / codex / cursor-agent.
+    AUTO = "auto"
 
 
 @dataclass(frozen=True, slots=True)

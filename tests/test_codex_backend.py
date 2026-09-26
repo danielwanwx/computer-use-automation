@@ -113,6 +113,9 @@ def _fake_codex(tmp_path: Path, *, mode: str = "success") -> tuple[str, Path]:
             if mode == "invalid":
                 Path(output).write_text('{"operation":"CLICK"}')
                 raise SystemExit(0)
+            if mode == "default_model_unsupported" and "--model" not in args:
+                print("The 'x' model is not supported when using Codex with a ChatGPT account.", file=sys.stderr)
+                raise SystemExit(1)
             decision = {
                 "operation": "CLICK",
                 "observation_id": "obs_1",
@@ -216,12 +219,22 @@ def test_codex_backend_uses_safe_cli_contract_and_scrubs_api_keys(tmp_path, monk
 def test_codex_backend_accepts_structured_jsonl_fallback(tmp_path, monkeypatch):
     executable, _ = _fake_codex(tmp_path, mode="stdout")
     reply = asyncio.run(
-        CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=2)
+        CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=10)
     )
     assert reply.decision.control_ref == "c_1"
     assert reply.model_id == "codex-cli"
     assert reply.input_tokens == 123
     assert reply.output_tokens == 45
+
+
+def test_codex_backend_falls_back_once_when_the_default_model_is_not_offered(tmp_path):
+    executable, inspect_path = _fake_codex(tmp_path, mode="default_model_unsupported")
+    backend = CodexDecisionBackend(executable=executable)
+    reply = asyncio.run(backend.choose(_request(), timeout_seconds=10))
+    assert reply.decision.control_ref == "c_1"
+    assert reply.model_id == "gpt-5.5"
+    argv = json.loads(inspect_path.read_text())["argv"]
+    assert argv[argv.index("--model") + 1] == "gpt-5.5"
 
 
 @pytest.mark.parametrize(
@@ -235,7 +248,7 @@ def test_codex_backend_accepts_structured_jsonl_fallback(tmp_path, monkeypatch):
 def test_codex_backend_maps_auth_quota_and_invalid_output(tmp_path, monkeypatch, mode, code):
     executable, _ = _fake_codex(tmp_path, mode=mode)
     with pytest.raises(DecisionProviderError) as raised:
-        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=2))
+        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=10))
     assert raised.value.code == code
 
 
@@ -283,7 +296,7 @@ def test_codex_backend_kills_descendants_after_leader_exit(tmp_path):
 def test_codex_backend_early_stdin_close_maps_to_safe_failure(tmp_path):
     executable, _ = _fake_codex(tmp_path, mode="close_stdin")
     with pytest.raises(DecisionProviderError) as raised:
-        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=2))
+        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=10))
     assert raised.value.code == "PROVIDER_UNAVAILABLE"
 
 

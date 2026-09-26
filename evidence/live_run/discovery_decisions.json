@@ -2,23 +2,23 @@
   "decisions": [
     {
       "chose": {
-        "control_ref": "c_2dc1e7e676ceec01",
+        "control_ref": "c_8a80adfbe39a39f9",
         "control_safe_name": "<requested_account>",
         "operation": "CLICK",
-        "rationale": "Open the requested account to verify savings status and balance.",
+        "rationale": "Overview is ready and the requested account is listed; open it to check the type and balance.",
         "reason_code": "OPEN_REQUESTED_ACCOUNT"
       },
       "decision": 1,
-      "model_id": "gpt-5.5-2026-04-23",
+      "model_id": "claude-opus-5-5",
       "observed": {
         "offered_controls": [
           {
-            "control_ref": "c_3ff6484265ff1d66",
+            "control_ref": "c_2254bb31efed7a7d",
             "role": "link",
             "safe_name": "Accounts Overview"
           },
           {
-            "control_ref": "c_2dc1e7e676ceec01",
+            "control_ref": "c_8a80adfbe39a39f9",
             "role": "link",
             "safe_name": "<requested_account>"
           }
@@ -37,8 +37,8 @@
         }
       },
       "usage": {
-        "input_tokens": 377,
-        "output_tokens": 108
+        "input_tokens": 2,
+        "output_tokens": 252
       }
     },
     {
@@ -46,15 +46,15 @@
         "control_ref": null,
         "control_safe_name": null,
         "operation": "DONE",
-        "rationale": "Savings account matches and available balance is parseable.",
-        "reason_code": "BALANCE_READY"
+        "rationale": "Detail page shows the matching savings account with a parseable available balance.",
+        "reason_code": "BALANCE_AVAILABLE"
       },
       "decision": 2,
-      "model_id": "gpt-5.5-2026-04-23",
+      "model_id": "claude-opus-5-5",
       "observed": {
         "offered_controls": [
           {
-            "control_ref": "c_4ced2a25508a324c",
+            "control_ref": "c_10b40851cf75ff4c",
             "role": "link",
             "safe_name": "Accounts Overview"
           }
@@ -80,11 +80,11 @@
         }
       },
       "usage": {
-        "input_tokens": 361,
-        "output_tokens": 65
+        "input_tokens": 2,
+        "output_tokens": 223
       }
     }
   ],
   "schema_version": 1,
-  "trace_id": "trace_8df88c50eb28650a"
+  "trace_id": "trace_81d55a2a7880ab26"
 }

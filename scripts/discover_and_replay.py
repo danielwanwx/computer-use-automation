@@ -12,9 +12,9 @@
    (another customer's account, unknown account, checking account, bad input).
 6. Export value-safe evidence (``--no-export`` prints the results instead).
 
-Requires ``CUA_LIVE=1`` and a healthy loopback target. The default provider is
-the OpenAI Responses API (``OPENAI_API_KEY``); ``--provider codex`` uses a saved
-Codex CLI login instead.
+Requires ``CUA_LIVE=1`` and a healthy loopback target. ``--provider auto`` (default)
+uses ``OPENAI_API_KEY`` if set, otherwise a signed-in Claude Code, Codex, or Cursor
+CLI on this machine, so no API key is needed.
 """
 
 from __future__ import annotations
@@ -22,14 +22,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
-from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import re
 import sys
 import tempfile
-from typing import Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -38,7 +36,12 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 
-from cua.llm import CodexDecisionBackend, OpenAIResponsesDecisionBackend
+from cua.llm import (
+    PROVIDER_MODES,
+    DecisionProviderError,
+    OpenAIResponsesDecisionBackend,
+    resolve_decision_backend,
+)
 from cua.models.qualification import ValidationQualification
 from cua.registry import BundleRegistry
 from cua.registry.runtime_fingerprint import current_runtime_fingerprint
@@ -56,6 +59,7 @@ from testbed.parabank import DEFAULT_ORIGIN, UPSTREAM_COMMIT, check_health
 from testbed.seed import deposit_savings_for_test, seed
 
 from scripts.native_lifecycle_common import (
+    provider_call_trap,
     contains_private_value,
     export_draft_artifact,
     export_evidence_manifest,
@@ -88,25 +92,8 @@ def _require_explicit_opt_in() -> None:
         )
 
 
-@contextmanager
-def _provider_call_trap() -> Iterator[list[int]]:
-    """Trap accidental provider use during no-model replay in this process."""
-
-    calls: list[int] = []
-    original_codex = CodexDecisionBackend.choose
-    original_openai = OpenAIResponsesDecisionBackend.choose
-
-    async def trap(self, *args, **kwargs):
-        calls.append(1)
-        raise AssertionError("no-model replay called a decision backend")
-
-    CodexDecisionBackend.choose = trap
-    OpenAIResponsesDecisionBackend.choose = trap
-    try:
-        yield calls
-    finally:
-        CodexDecisionBackend.choose = original_codex
-        OpenAIResponsesDecisionBackend.choose = original_openai
+def _provider_call_trap():
+    return provider_call_trap("no-model replay called a decision backend")
 
 
 def _account_ids(manifest: dict) -> dict[str, str]:
@@ -136,6 +123,12 @@ def _assert_oracle(result, *, account_id: str, origin: str, backend_account: dic
 
 
 _NONEXISTENT_ACCOUNT_ID = "99999999"
+_PROVIDER_EVIDENCE_MODES = {
+    "openai": "openai_responses_api",
+    "claude-code": "claude_code_cli_login",
+    "codex": "codex_cli_login",
+    "cursor": "cursor_agent_cli_login",
+}
 _REDACT_DIGITS = re.compile(r"[0-9]{3,}")
 
 # Each replay case the caller can hit, with the result class it must produce.
@@ -302,7 +295,7 @@ def _artifact_paths(version: str) -> tuple[str, str, str]:
 def _run_lifecycle(
     *,
     artifact_version: str | None = None,
-    provider: str = "openai",
+    provider: str = "auto",
     model: str | None = None,
     export: bool = True,
 ) -> dict:
@@ -312,11 +305,20 @@ def _run_lifecycle(
     if not check_health():
         raise RuntimeError("pinned loopback ParaBank is not healthy; start it first")
     target = target_payload()
-    # Read the API key once, before the environment is scrubbed: only the
-    # discovery backend holds it, and replay runs with no provider key present.
-    api_key = os.environ.get("OPENAI_API_KEY") if provider == "openai" else None
-    if provider == "openai" and not api_key:
-        raise RuntimeError("--provider openai requires OPENAI_API_KEY")
+    # Resolve the backend before the environment is scrubbed. An API key is read
+    # once and held only by the discovery backend; replay runs with no key set.
+    try:
+        backend, provider = resolve_decision_backend(provider, model=model)
+    except DecisionProviderError:
+        raise RuntimeError(
+            "no decision backend: set OPENAI_API_KEY or install and sign in to "
+            "Claude Code (claude), Codex (codex), or Cursor (cursor-agent)"
+        ) from None
+    if provider == "openai":
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("--provider openai requires OPENAI_API_KEY")
+        backend = OpenAIResponsesDecisionBackend(backend.model_id, credential_provider=lambda: api_key)
     credentials = temporary_credentials()
     previous = install_credentials(credentials)
     try:
@@ -327,12 +329,6 @@ def _run_lifecycle(
             account_ids = _account_ids(manifest)
             forbidden = private_values(credentials, manifest)
 
-            if provider == "openai":
-                if not model:
-                    raise RuntimeError("--model is required with --provider openai")
-                backend = OpenAIResponsesDecisionBackend(model, credential_provider=lambda: api_key)
-            else:
-                backend = CodexDecisionBackend(max_retries=0, max_timeout_seconds=180.0)
             provider_call_count = [0]
             original_choose = backend.choose
 
@@ -555,6 +551,7 @@ def _run_lifecycle(
                 preview = {
                     "status": "PASS",
                     "exported": False,
+                    "provider": {"mode": provider, "model_id": backend.model_id},
                     "artifact": {
                         "reference": f"capability/{reference.name}@{reference.version}",
                         "digest": f"sha256:{reference.digest}",
@@ -623,13 +620,13 @@ def _run_lifecycle(
                 "status": "PASS",
                 "target": target,
                 "provider": {
-                    "mode": "openai_responses_api" if provider == "openai" else "codex_saved_login",
+                    "mode": _PROVIDER_EVIDENCE_MODES[provider],
                     "model_id": backend.model_id,
                     "discovery_decisions": provider_call_count[0],
                     "replay_provider_calls": 0,
                     "credentials": "discovery_only_removed_before_replay"
                     if provider == "openai"
-                    else "removed_from_provider_child",
+                    else "local_cli_login_no_key_in_child",
                 },
                 "trace": trace_summary,
                 "artifact": {
@@ -685,14 +682,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--provider",
-        choices=("openai", "codex"),
-        default="openai",
-        help="discovery backend: saved Codex login, or the OpenAI Responses API (OPENAI_API_KEY)",
+        choices=PROVIDER_MODES,
+        default="auto",
+        help="discovery backend. auto: OPENAI_API_KEY if set, else the first signed-in "
+        "local agent CLI found (claude, codex, cursor-agent)",
     )
     parser.add_argument(
         "--model",
-        default="gpt-5.5-2026-04-23",
-        help="OpenAI model ID (pinned snapshot by default; ignored for --provider codex)",
+        help="model for an explicitly named provider (default: the provider's own default; "
+        "OpenAI uses a pinned snapshot)",
     )
     args = parser.parse_args(argv)
     try:

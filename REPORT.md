@@ -24,7 +24,7 @@ Key decisions:
 - **A reviewer closes the capability; it does not come from the transcript.** The compiler accepts only *verified* observed events from the trace and merges them with a human-authored blueprint. The blueprint supplies the contract, a membership assertion, extraction, and the final verification. Every step records where it came from (`observed` / `declared` / `reviewer_added`). The artifact is therefore reviewable and not a transcript of whatever the model happened to do. The cost is honest: in this slice the model *discovered* the navigation (open the requested account from the overview, then decide it was done), while the checks around it are declared.
 - **Validation needs an independent oracle.** A draft is replayed on a *different* synthetic customer, and the output must match ParaBank's REST API (`testbed/oracle.py`, never imported by `src/`). Approval binds to the exact digest plus a runtime fingerprint (source, lock file, parser/condition/profile hashes), the browser version, and the target revision. Changing any of them invalidates the approval.
 
-Choices: Playwright with Chrome was chosen because the target is web. The seam that matters for other surfaces is the observation contract, not Playwright. The recorded run used the OpenAI Responses API with the pinned snapshot `gpt-5.5-2026-04-23` and strict JSON schema output. A Codex CLI backend exists for keyless local use. Execution is synchronous and in-process; the HTTP service (`cua serve`) is a thin boundary over the same `ApplicationService`.
+Choices: Playwright with Chrome was chosen because the target is web. The seam that matters for other surfaces is the observation contract, not Playwright. The decision backend is pluggable, and reviewers should not need an API key. `auto` uses `OPENAI_API_KEY` when it is set (pinned snapshot `gpt-5.5-2026-04-23`). Otherwise it borrows a locally signed-in Claude Code, Codex, or Cursor CLI, calling it non-interactively once per decision: empty directory, no tools, no project rules or MCP servers, and the reply constrained to the decision schema. The committed evidence was recorded this way through Claude Code (`claude-opus-5-5`); the same lifecycle also passed on the OpenAI API and on Codex. Execution is synchronous and in-process; the HTTP service (`cua serve`) is a thin boundary over the same `ApplicationService`.
 
 ## Artifact schema
 
@@ -116,6 +116,7 @@ Implemented: one profile, the pins, and fail-closed readiness. Overlays, a secon
 - **Limits.**
   - There are no screenshots in the evidence: the redaction guarantee costs some debuggability.
   - Model rationale is free text; masking digits is a heuristic.
+  - A borrowed local agent CLI is a larger surface than an API call. It gets no tools, an empty directory, no project rules or MCP servers, and only the value-free request; the isolation still relies on the CLI honouring those flags.
   - The operator is a single local token with no roles.
   - The value scan checks only this run's synthetic values; it is not a general PII detector.
 

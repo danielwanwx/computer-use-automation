@@ -1,11 +1,11 @@
 {
   "approval": {
-    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "digest": "sha256:c893e0c1b7653a307fb8467f91395514a6e25e68260e3d8a0241b9ae81fa2b05",
     "sidecar_committed": false,
     "status": "APPROVED_IN_TEMPORARY_REGISTRY"
   },
   "artifact": {
-    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "digest": "sha256:c893e0c1b7653a307fb8467f91395514a6e25e68260e3d8a0241b9ae81fa2b05",
     "path": "artifacts/get_savings_balance-1.0.0.json",
     "provenance_types": [
       "declared",
@@ -18,11 +18,11 @@
   "discovery_decisions": {
     "count": 2,
     "path": "evidence/live_run/discovery_decisions.json",
-    "sha256": "43af979d35f4b83205d6730bca891c083af76c83dca89feb488db980beca55e4"
+    "sha256": "6a5434370cac219eb25363fac9cd46d2e5cf1fe6c7e6b6992acb768e9cbea5a2"
   },
   "event_records": {
     "index_path": "evidence/live_run/index.json",
-    "index_sha256": "a606fa6e9731ca35969bf689a473a2b8fd67aabcb8a0039e05f005a5a8bf25c0",
+    "index_sha256": "10dbc62ea864e1bd6892200e28ef128b202cfbc462ed908051f1303601b3b51e",
     "record_count": 18
   },
   "evidence_path": "evidence/live_lifecycle.json",
@@ -32,7 +32,7 @@
       "code": "REPLAY_COMPLETE",
       "failure": null,
       "outputs_returned": true,
-      "run_alias": "run_0dc4814a1288f670",
+      "run_alias": "run_295130ce855c0c96",
       "session_reused": false,
       "status": "SUCCESS"
     },
@@ -41,7 +41,7 @@
       "code": "ACCOUNT_NOT_FOUND",
       "failure": null,
       "outputs_returned": false,
-      "run_alias": "run_2cb32d4953efc825",
+      "run_alias": "run_a7e41c8b2b2ebc83",
       "session_reused": true,
       "status": "BUSINESS_OUTCOME"
     },
@@ -50,7 +50,7 @@
       "code": "ACCOUNT_NOT_FOUND",
       "failure": null,
       "outputs_returned": false,
-      "run_alias": "run_c17d340ec758da2a",
+      "run_alias": "run_9defaa8eaa0d5732",
       "session_reused": true,
       "status": "BUSINESS_OUTCOME"
     },
@@ -63,7 +63,7 @@
         "step_id": "read_available"
       },
       "outputs_returned": false,
-      "run_alias": "run_5ef8c9e779158f06",
+      "run_alias": "run_66996d9623e7bd30",
       "session_reused": true,
       "status": "FAILURE"
     },
@@ -76,7 +76,7 @@
         "step_id": null
       },
       "outputs_returned": false,
-      "run_alias": "run_f67dfbd486b20a45",
+      "run_alias": "run_031514e465a668c4",
       "session_reused": true,
       "status": "FAILURE"
     },
@@ -85,16 +85,16 @@
       "code": "REPLAY_COMPLETE",
       "failure": null,
       "outputs_returned": true,
-      "run_alias": "run_3bd23015b3f055ab",
+      "run_alias": "run_4501b25eadc4e590",
       "session_reused": true,
       "status": "SUCCESS"
     }
   ],
   "provider": {
-    "credentials": "discovery_only_removed_before_replay",
+    "credentials": "local_cli_login_no_key_in_child",
     "discovery_decisions": 2,
-    "mode": "openai_responses_api",
-    "model_id": "gpt-5.5-2026-04-23",
+    "mode": "claude_code_cli_login",
+    "model_id": "claude-opus-5-5",
     "replay_provider_calls": 0
   },
   "replay": {
@@ -110,7 +110,7 @@
     "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
     "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
     "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
-    "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+    "source_sha256": "848b601228b2999aadc901603e8448c5c7b1909b7e4db9aee2178a00e2e3df0a"
   },
   "schema_version": 1,
   "status": "PASS",
@@ -120,7 +120,7 @@
     "origin": "http://127.0.0.1:8080/parabank",
     "tomcat_version": "10.1.60",
     "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
-    "war_sha256": "e902cacda1670f87e6fd1c75c5c987acd4a531a74919aafa1daf7adcd8ddd5f7"
+    "war_sha256": "e8e052495a2bd884094a2618dc9f660c9832649a4841fdf85a50ff78e0aa011b"
   },
   "trace": {
     "completion_proof_present": true,
@@ -132,14 +132,14 @@
     "event_ids": [
       "event_1"
     ],
-    "model_id": "gpt-5.5-2026-04-23",
+    "model_id": "claude-opus-5-5",
     "source_types": [
       "observed"
     ],
     "step_ids": [
       "click_1"
     ],
-    "trace_id": "trace_8df88c50eb28650a",
+    "trace_id": "trace_81d55a2a7880ab26",
     "verified": true
   },
   "validation": {
@@ -149,9 +149,9 @@
       "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
       "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
       "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
-      "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+      "source_sha256": "848b601228b2999aadc901603e8448c5c7b1909b7e4db9aee2178a00e2e3df0a"
     },
     "status": "SUCCESS",
-    "validation_run_ref": "run_8fc01a81255e4841"
+    "validation_run_ref": "run_4e07efafb459ce1f"
   }
 }

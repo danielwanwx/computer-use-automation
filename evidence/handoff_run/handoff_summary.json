@@ -1,21 +1,21 @@
 {
   "artifact": {
-    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "digest": "sha256:c893e0c1b7653a307fb8467f91395514a6e25e68260e3d8a0241b9ae81fa2b05",
     "reference": "capability/get_savings_balance@1.0.0"
   },
   "case": "replay_blocked_by_unexpected_dialog_then_human_handoff",
   "event_records": {
     "index_path": "evidence/handoff_run/index.json",
-    "index_sha256": "8882e4e744fe21c62ddcf4dc203024cee93e1aab64918d332088d437776c81c3"
+    "index_sha256": "854b7b9ed07fe88bcb1d33fa42ca958cc543a547de0deacd94202a1fccd1b5cd"
   },
   "intervention_request": {
     "capability": "get_savings_balance@1.0.0",
     "epoch": 1,
-    "intervention_id": "iv_9718717413cc114ac528dfab",
+    "intervention_id": "iv_57368b98d9c2ebe0fd0f99c8",
     "owner": "NONE",
     "reason": "UNKNOWN_BLOCKER",
     "route_at_request": "accounts_overview",
-    "run_alias": "run_5dfd85a8f0769be1",
+    "run_alias": "run_786970f7f03adbee",
     "same_page_as_automation": true,
     "state": "WAITING_FOR_HUMAN",
     "step_id": "ensure_overview"
@@ -56,12 +56,12 @@
       "kind": "blocker_injected",
       "kind_of_blocker": "unclassified_modal_dialog",
       "route": "accounts_overview",
-      "t_ms": 616
+      "t_ms": 651
     },
     {
       "kind": "replay_started",
-      "run_alias": "run_5dfd85a8f0769be1",
-      "t_ms": 619
+      "run_alias": "run_786970f7f03adbee",
+      "t_ms": 654
     },
     {
       "epoch": 1,
@@ -70,14 +70,14 @@
       "reason": "UNKNOWN_BLOCKER",
       "state": "WAITING_FOR_HUMAN",
       "step_id": "ensure_overview",
-      "t_ms": 667
+      "t_ms": 706
     },
     {
       "epoch": 1,
       "kind": "intervention_requested",
       "reason": "UNKNOWN_BLOCKER",
       "step_id": "ensure_overview",
-      "t_ms": 722
+      "t_ms": 806
     },
     {
       "epoch": 2,
@@ -86,20 +86,20 @@
       "reason": "UNKNOWN_BLOCKER",
       "state": "HUMAN_CLAIMED",
       "step_id": "ensure_overview",
-      "t_ms": 722
+      "t_ms": 806
     },
     {
       "epoch": 2,
       "kind": "operator_claimed",
       "operator_ref": "local_operator",
       "owner": "HUMAN",
-      "t_ms": 722
+      "t_ms": 806
     },
     {
       "category": "DISMISS_UNEXPECTED_DIALOG",
       "click_count": 1,
       "kind": "operator_action",
-      "t_ms": 762
+      "t_ms": 832
     },
     {
       "epoch": 3,
@@ -108,7 +108,7 @@
       "reason": "UNKNOWN_BLOCKER",
       "state": "RESUMING",
       "step_id": "ensure_overview",
-      "t_ms": 762
+      "t_ms": 832
     },
     {
       "epoch": 4,
@@ -117,18 +117,18 @@
       "reason": "UNKNOWN_BLOCKER",
       "state": "RUNNING",
       "step_id": "ensure_overview",
-      "t_ms": 892
+      "t_ms": 981
     },
     {
       "epoch": 4,
       "kind": "operator_resumed",
       "state": "RUNNING",
-      "t_ms": 892
+      "t_ms": 981
     },
     {
       "kind": "replay_finished",
       "status": "SUCCESS",
-      "t_ms": 1621
+      "t_ms": 1736
     }
   ]
 }
