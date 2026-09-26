@@ -219,7 +219,8 @@ class OpenAIResponsesDecisionBackend:
                             "or the Accounts Overview link. Choose DONE only when the safe signals "
                             "show a matching savings account and parseable available balance. "
                             "Choose WAIT for transient loading or BLOCKED when progress is unsafe. "
-                            "Never invent selectors, account values, or additional work."
+                            "Never invent selectors, account values, or additional work. "
+                            "Keep rationale to one short sentence of at most 120 characters."
                         ),
                     },
                     {"role": "user", "content": user_content},
@@ -540,7 +541,8 @@ class CodexDecisionBackend:
         return (
             "Choose exactly one next typed decision for this read-only savings-balance task. "
             "Use only the listed control_ref values and return one JSON object matching the "
-            "provided output schema. Never invent selectors, account values, credentials, or work.\n"
+            "provided output schema. Never invent selectors, account values, credentials, or work. "
+            "Keep rationale to one short sentence of at most 120 characters.\n"
             + safe_payload
         ).encode("utf-8")
 

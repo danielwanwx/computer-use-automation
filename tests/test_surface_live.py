@@ -351,10 +351,11 @@ async def _exercise_surface(account_a: str, account_b: str, checking_account: st
                 }"""
             ))
 
-        await expect_surface_code(
-            "SUBJECT_MISMATCH",
-            submit(lambda: surface.observe(handle.session_id, bindings=binding_b)),
-        )
+        # A detail page for another account is observable (so a reused session can
+        # navigate away) but never identity-matched for the other binding.
+        _, other_view = await submit(lambda: surface.observe(handle.session_id, bindings=binding_b))
+        if other_view.page_state != "DETAIL_READY" or other_view.detail_identity_match is not False:
+            raise AssertionError("a different account's detail page must not match the binding")
         detail_observation, detail_view = await wait_state(
             "account_details", "DETAIL_READY", binding_a
         )

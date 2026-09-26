@@ -160,6 +160,17 @@ class EvidenceSink:
                 "UPDATE runs SET state = ?, outcome_code = ? WHERE run_alias = ?",
                 (state, outcome_code, run_alias),
             )
+        # Every lifecycle change is also in the run's event log, so a run that stops
+        # before any action still has a readable record of how it ended.
+        self.emit(
+            SafeEvent(
+                event_id=f"e_{secrets.token_hex(12)}",
+                run_alias=run_alias,
+                event_type="RUN_STATE_CHANGED",
+                state=state,
+                reason_code=outcome_code,
+            )
+        )
         return self.get_run(run_alias)
 
     def emit(self, event: SafeEvent) -> None:

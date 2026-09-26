@@ -242,14 +242,16 @@ def test_codex_backend_maps_auth_quota_and_invalid_output(tmp_path, monkeypatch,
 def test_codex_backend_timeout_and_cancel_cleanup(tmp_path, monkeypatch):
     executable, inspect_path = _fake_codex(tmp_path, mode="sleep")
     backend = CodexDecisionBackend(executable=executable)
+    # 2s leaves room for the fake CLI's interpreter start-up on a loaded machine.
     with pytest.raises(DecisionProviderError) as raised:
-        asyncio.run(backend.choose(_request(), timeout_seconds=0.5))
+        asyncio.run(backend.choose(_request(), timeout_seconds=2.0))
     assert raised.value.code == "PROVIDER_TIMEOUT"
     assert not Path(json.loads(inspect_path.read_text())["cwd"]).exists()
+    inspect_path.unlink()
 
     async def cancelled():
         task = asyncio.create_task(backend.choose(_request(), timeout_seconds=10))
-        for _ in range(20):
+        for _ in range(500):
             await asyncio.sleep(0.01)
             if inspect_path.exists():
                 break
@@ -265,7 +267,7 @@ def test_codex_backend_kills_descendants_after_leader_exit(tmp_path):
     executable, _ = _fake_codex(tmp_path, mode="fork")
     child_pid_path = tmp_path / "codex-child.pid"
     with pytest.raises(DecisionProviderError) as raised:
-        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=0.5))
+        asyncio.run(CodexDecisionBackend(executable=executable).choose(_request(), timeout_seconds=2.0))
     assert raised.value.code == "PROVIDER_TIMEOUT"
     child_pid = int(child_pid_path.read_text(encoding="utf-8"))
     for _ in range(50):

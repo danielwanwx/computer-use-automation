@@ -2,7 +2,7 @@
 
 It exercises discovery, isolated draft validation, independent backend evaluation,
 approval, and repeated cross-customer replay against the pinned loopback target. It
-never calls a model provider and is not real-model or V1 qualification evidence.
+never calls a model provider; the live-model run is scripts/discover_and_replay.py.
 """
 
 from __future__ import annotations

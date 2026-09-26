@@ -1,0 +1,35 @@
+{
+  "browser": {
+    "headed": true,
+    "same_session_required": true
+  },
+  "criterion": {
+    "resumed_successfully": true,
+    "same_session": true
+  },
+  "evidence_type": "person_operated_same_session_handoff",
+  "human_action": {
+    "category": "CLICK_ACCOUNTS_OVERVIEW_IN_SAME_SESSION",
+    "performed_by": "person"
+  },
+  "intervention": {
+    "disposition": "NEXT",
+    "reason": "AUTHORIZED",
+    "resumed": true,
+    "route_verified": true,
+    "run_id": "run_9deae721d691bee5",
+    "state": "RUNNING"
+  },
+  "note": "A person operated the headed browser session the automation was using and resumed it from the operator page. Recorded on an earlier revision of this repository (source fingerprint below) with a handoff-preparation script that scripts/demo_handoff.py --operator person --headed now replaces. Only structural facts are kept.",
+  "operator": {
+    "attestation": "explicit_completion",
+    "person_performed": true
+  },
+  "recorded_on": "2026-09-22",
+  "schema_version": 1,
+  "source_fingerprint": "c62aef516cdf356dd9432c84a6c3f02ea46fe8407c08653486fd0355f0fe51b8",
+  "target": {
+    "loopback": true,
+    "upstream_revision": "ee82474be5f58bea3ddc8be0fd831072b00201cb"
+  }
+}

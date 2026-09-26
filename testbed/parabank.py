@@ -38,7 +38,7 @@ TOOLCHAIN = CACHE / "toolchain"
 
 
 class TestbedError(RuntimeError):
-    pass
+    __test__ = False  # not a pytest test class despite the name
 
 
 def _run(command: Sequence[str], *, cwd: Optional[Path] = None, env=None) -> str:

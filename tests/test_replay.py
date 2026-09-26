@@ -958,6 +958,25 @@ def test_replay_reports_account_not_found_only_from_a_complete_overview(tmp_path
     asyncio.run(scenario())
 
 
+def test_membership_assert_reports_account_not_found_as_business_outcome(tmp_path):
+    # Mirrors the compiled artifact: the declared membership ASSERT runs before
+    # the account click, so absence must surface there, not as a hard failure.
+    async def scenario():
+        result, _, surface = await _run_action_case(
+            tmp_path,
+            account_ids=(),
+            recovery=True,
+            business_outcomes=("ACCOUNT_NOT_FOUND",),
+        )
+
+        assert result.status is InvocationStatus.BUSINESS_OUTCOME
+        assert result.code is SafeReasonCode.ACCOUNT_NOT_FOUND
+        assert result.outputs is None
+        assert surface.account_clicks == 0
+
+    asyncio.run(scenario())
+
+
 def test_incomplete_overview_never_becomes_account_not_found(tmp_path):
     async def scenario():
         result, _, surface = await _run_action_case(
@@ -1165,6 +1184,51 @@ def test_handoff_next_advances_exact_failed_step_without_redispatch(tmp_path):
         assert notifier.requests[0].step_id == "open_account"
         assert surface.account_clicks == 1
         assert result.outputs["currency"].get_secret_value() == "USD"
+
+    asyncio.run(scenario())
+
+
+def test_unclassified_dialog_escalates_to_human_instead_of_failing_hard(tmp_path):
+    class DialogSurface(_ActionSurface):
+        blocked = True
+
+        async def observe(self, session_id, *, bindings=None):
+            observation, view = await super().observe(session_id, bindings=bindings)
+            if not self.blocked:
+                return observation, view
+            return (
+                observation.model_copy(update={"state_tags": ("UNKNOWN",)}),
+                replace(view, page_state="UNKNOWN", unknown_blocker=True),
+            )
+
+    async def scenario():
+        actor = SessionActor()
+        surface = DialogSurface(actor)
+
+        def dismiss_dialog(_request, _trusted):
+            surface.blocked = False
+
+        notifier = _FakeHandoffNotifier(
+            [ReconciliationDisposition.RETRY_SAFE],
+            on_request=dismiss_dialog,
+        )
+        runtime, _, surface, run_alias = _runtime(
+            tmp_path,
+            actor,
+            bundle=_action_bundle(recovery=True),
+            surface=surface,
+            handoff_notifier=notifier,
+        )
+        await actor.begin_run(run_alias)
+        result = await runtime.run(
+            BundleReference(name="get_savings_balance", version="1.0.0", digest="a" * 64),
+            _context(run_alias),
+        )
+
+        assert [request.reason_code for request in notifier.requests] == [
+            SafeReasonCode.UNKNOWN_BLOCKER
+        ]
+        assert result.status is InvocationStatus.SUCCESS
 
     asyncio.run(scenario())
 

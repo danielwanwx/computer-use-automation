@@ -1,0 +1,157 @@
+{
+  "approval": {
+    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "sidecar_committed": false,
+    "status": "APPROVED_IN_TEMPORARY_REGISTRY"
+  },
+  "artifact": {
+    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "path": "artifacts/get_savings_balance-1.0.0.json",
+    "provenance_types": [
+      "declared",
+      "observed",
+      "reviewer_added"
+    ],
+    "reference": "capability/get_savings_balance@1.0.0"
+  },
+  "case": "live_discovery_lifecycle",
+  "discovery_decisions": {
+    "count": 2,
+    "path": "evidence/live_run/discovery_decisions.json",
+    "sha256": "43af979d35f4b83205d6730bca891c083af76c83dca89feb488db980beca55e4"
+  },
+  "event_records": {
+    "index_path": "evidence/live_run/index.json",
+    "index_sha256": "a606fa6e9731ca35969bf689a473a2b8fd67aabcb8a0039e05f005a5a8bf25c0",
+    "record_count": 18
+  },
+  "evidence_path": "evidence/live_lifecycle.json",
+  "outcome_replays": [
+    {
+      "case": "own_savings_account_first",
+      "code": "REPLAY_COMPLETE",
+      "failure": null,
+      "outputs_returned": true,
+      "run_alias": "run_0dc4814a1288f670",
+      "session_reused": false,
+      "status": "SUCCESS"
+    },
+    {
+      "case": "account_of_another_customer",
+      "code": "ACCOUNT_NOT_FOUND",
+      "failure": null,
+      "outputs_returned": false,
+      "run_alias": "run_2cb32d4953efc825",
+      "session_reused": true,
+      "status": "BUSINESS_OUTCOME"
+    },
+    {
+      "case": "account_does_not_exist",
+      "code": "ACCOUNT_NOT_FOUND",
+      "failure": null,
+      "outputs_returned": false,
+      "run_alias": "run_c17d340ec758da2a",
+      "session_reused": true,
+      "status": "BUSINESS_OUTCOME"
+    },
+    {
+      "case": "checking_not_savings",
+      "code": "REPLAY_FAILED",
+      "failure": {
+        "effect_state": "NOT_DISPATCHED",
+        "reason_code": "PRECONDITION_FAILED",
+        "step_id": "read_available"
+      },
+      "outputs_returned": false,
+      "run_alias": "run_5ef8c9e779158f06",
+      "session_reused": true,
+      "status": "FAILURE"
+    },
+    {
+      "case": "malformed_account_id",
+      "code": "REPLAY_FAILED",
+      "failure": {
+        "effect_state": "NOT_DISPATCHED",
+        "reason_code": "INPUT_INVALID",
+        "step_id": null
+      },
+      "outputs_returned": false,
+      "run_alias": "run_f67dfbd486b20a45",
+      "session_reused": true,
+      "status": "FAILURE"
+    },
+    {
+      "case": "own_savings_account_again",
+      "code": "REPLAY_COMPLETE",
+      "failure": null,
+      "outputs_returned": true,
+      "run_alias": "run_3bd23015b3f055ab",
+      "session_reused": true,
+      "status": "SUCCESS"
+    }
+  ],
+  "provider": {
+    "credentials": "discovery_only_removed_before_replay",
+    "discovery_decisions": 2,
+    "mode": "openai_responses_api",
+    "model_id": "gpt-5.5-2026-04-23",
+    "replay_provider_calls": 0
+  },
+  "replay": {
+    "balance_change_observed": true,
+    "credentials": "removed",
+    "customers": 2,
+    "independent_oracle_match": true,
+    "provider_calls": 0,
+    "runs_per_customer": 5,
+    "successful_replays": 10
+  },
+  "runtime_fingerprint": {
+    "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
+    "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
+    "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
+    "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "target": {
+    "kind": "parabank",
+    "loopback": true,
+    "origin": "http://127.0.0.1:8080/parabank",
+    "tomcat_version": "10.1.60",
+    "upstream_commit": "ee82474be5f58bea3ddc8be0fd831072b00201cb",
+    "war_sha256": "e902cacda1670f87e6fd1c75c5c987acd4a531a74919aafa1daf7adcd8ddd5f7"
+  },
+  "trace": {
+    "completion_proof_present": true,
+    "decisions_used": 2,
+    "effect_states": [
+      "VERIFIED"
+    ],
+    "event_count": 1,
+    "event_ids": [
+      "event_1"
+    ],
+    "model_id": "gpt-5.5-2026-04-23",
+    "source_types": [
+      "observed"
+    ],
+    "step_ids": [
+      "click_1"
+    ],
+    "trace_id": "trace_8df88c50eb28650a",
+    "verified": true
+  },
+  "validation": {
+    "browser_version": "153.0.8010.54",
+    "independent_oracle_match": true,
+    "runtime_fingerprint": {
+      "condition_sha256": "090eec64ea44650c393010a3d259a4d12be9ac5634c1ed5bb473a3466364230a",
+      "parser_sha256": "da9a21e25a4ee0ae53b185ca51f297b971d28762eae1ac0a631455c401aac82d",
+      "profile_sha256": "7bc859316a875aa33e1f1569cf2c944e357e28cb3d9e8a5e6daa12a8d80f3294",
+      "source_sha256": "9e58d87732e3da3ce1db9d42b1232b540ae19d44e4a618e7831979fdcca08a22"
+    },
+    "status": "SUCCESS",
+    "validation_run_ref": "run_8fc01a81255e4841"
+  }
+}

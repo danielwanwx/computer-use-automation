@@ -1,0 +1,90 @@
+{
+  "decisions": [
+    {
+      "chose": {
+        "control_ref": "c_2dc1e7e676ceec01",
+        "control_safe_name": "<requested_account>",
+        "operation": "CLICK",
+        "rationale": "Open the requested account to verify savings status and balance.",
+        "reason_code": "OPEN_REQUESTED_ACCOUNT"
+      },
+      "decision": 1,
+      "model_id": "gpt-5.5-2026-04-23",
+      "observed": {
+        "offered_controls": [
+          {
+            "control_ref": "c_3ff6484265ff1d66",
+            "role": "link",
+            "safe_name": "Accounts Overview"
+          },
+          {
+            "control_ref": "c_2dc1e7e676ceec01",
+            "role": "link",
+            "safe_name": "<requested_account>"
+          }
+        ],
+        "page_state": "OVERVIEW_READY",
+        "recent_history": [],
+        "route": "accounts_overview",
+        "signals": {
+          "account_type_is_savings": null,
+          "available_balance_parseable": false,
+          "membership_valid": true,
+          "overview_complete": true,
+          "principal_matches": true,
+          "requested_account_matches": null,
+          "requested_account_present": true
+        }
+      },
+      "usage": {
+        "input_tokens": 377,
+        "output_tokens": 108
+      }
+    },
+    {
+      "chose": {
+        "control_ref": null,
+        "control_safe_name": null,
+        "operation": "DONE",
+        "rationale": "Savings account matches and available balance is parseable.",
+        "reason_code": "BALANCE_READY"
+      },
+      "decision": 2,
+      "model_id": "gpt-5.5-2026-04-23",
+      "observed": {
+        "offered_controls": [
+          {
+            "control_ref": "c_4ced2a25508a324c",
+            "role": "link",
+            "safe_name": "Accounts Overview"
+          }
+        ],
+        "page_state": "DETAIL_READY",
+        "recent_history": [
+          {
+            "decision": "CLICK",
+            "effect_state": "VERIFIED",
+            "reason_code": "AUTHORIZED",
+            "target_alias": "requested_account"
+          }
+        ],
+        "route": "account_details",
+        "signals": {
+          "account_type_is_savings": true,
+          "available_balance_parseable": true,
+          "membership_valid": true,
+          "overview_complete": null,
+          "principal_matches": true,
+          "requested_account_matches": true,
+          "requested_account_present": true
+        }
+      },
+      "usage": {
+        "input_tokens": 361,
+        "output_tokens": 65
+      }
+    }
+  ],
+  "schema_version": 1,
+  "trace_id": "trace_8df88c50eb28650a"
+}

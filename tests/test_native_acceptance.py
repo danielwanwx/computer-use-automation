@@ -1,9 +1,8 @@
 """Opt-in native acceptance checks that do not require a live model or a person.
 
 These tests use a temporary, scripted capability only to exercise the pinned
-ParaBank UI. They are native-target checks, not V1 provider-discovery evidence.
-Fault-injection assertions remain labelled in the test names and are never
-promoted as native behavior by the release verifier.
+ParaBank UI. They are native-target checks, not live-model discovery evidence.
+Fault-injection assertions remain labelled in the test names.
 """
 
 from __future__ import annotations

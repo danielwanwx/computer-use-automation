@@ -580,9 +580,11 @@ class PlaywrightSurface:
                 return terminal_state, (), {}, {}, None, {}
             parsed = USDDecimalParser().parse(values["PROFILE_AVAILABLE_BALANCE"])
             expected = _binding_value(bindings, "inputs.account_id")
+            # A detail page for a different account (e.g. left over from the previous
+            # invocation in a reused session) is reported, not raised: replay can
+            # navigate away from it, while EXTRACT and the final verifier still
+            # refuse any output unless the displayed account equals the input.
             detail_matches = None if expected is None else values["PROFILE_ACCOUNT_NUMBER"] == expected
-            if detail_matches is False:
-                raise SurfaceError("SUBJECT_MISMATCH")
             for key, alias in (
                 ("PROFILE_ACCOUNT_NUMBER", "detail.account_number"),
                 ("PROFILE_ACCOUNT_TYPE", "detail.account_type"),

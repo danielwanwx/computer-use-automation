@@ -8,6 +8,7 @@ cannot accidentally make a model call.
 from __future__ import annotations
 
 import hashlib
+import re
 import json
 import os
 from pathlib import Path
@@ -27,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_ROOT = ROOT / "artifacts"
 EVIDENCE_ROOT = ROOT / "evidence"
 ARTIFACT_RELATIVE_PATH = "artifacts/get_savings_balance-1.0.0.json"
-EVIDENCE_RELATIVE_PATH = "evidence/native_codex_lifecycle.json"
+EVIDENCE_RELATIVE_PATH = "evidence/live_lifecycle.json"
 _PROVIDER_ENV_NAMES = (
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
@@ -123,9 +124,8 @@ def safe_bundle_bytes(
     }
     if not {"observed", "declared", "reviewer_added"}.issubset(source_types):
         raise ValueError("compiled artifact does not preserve all required provenance types")
-    for value in forbidden_values:
-        if value and value in canonical:
-            raise ValueError("private synthetic value reached a persisted artifact")
+    if contains_private_value(canonical, forbidden_values):
+        raise ValueError("private synthetic value reached a persisted artifact")
     return canonical, payload
 
 
@@ -209,16 +209,17 @@ def export_draft_artifact(
     target: Mapping[str, Any],
     qualification: Mapping[str, Any],
     replay: Mapping[str, Any],
+    artifact_relative_path: str = ARTIFACT_RELATIVE_PATH,
 ) -> BundleReference:
     """Export only the value-safe draft and a matching release-safe index entry."""
 
     canonical, _ = safe_bundle_bytes(bundle, forbidden_values=forbidden_values)
     digest = hashlib.sha256(canonical).hexdigest()
     reference = BundleReference(name=bundle.capability.name, version=bundle.capability.version, digest=digest)
-    artifact_path = ROOT / ARTIFACT_RELATIVE_PATH
+    artifact_path = ROOT / artifact_relative_path
     if artifact_path.exists() and artifact_path.read_bytes() != canonical:
         tracked = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", ARTIFACT_RELATIVE_PATH],
+            ["git", "ls-files", "--error-unmatch", artifact_relative_path],
             cwd=ROOT,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -242,7 +243,7 @@ def export_draft_artifact(
         "name": reference.name,
         "version": reference.version,
         "digest": f"sha256:{reference.digest}",
-        "artifact_path": ARTIFACT_RELATIVE_PATH,
+        "artifact_path": artifact_relative_path,
         "lifecycle": "DRAFT",
         "provenance": {
             "trace_id": trace_summary.get("trace_id"),
@@ -262,18 +263,58 @@ def export_draft_artifact(
     ]
     entries.append(entry)
     index["schema_version"] = 1
-    index["status"] = "LIVE_CODEX_DRAFT_AVAILABLE"
+    index["status"] = "LIVE_DRAFT_AVAILABLE"
     index["entries"] = entries
     index["note"] = "Draft is trace-derived and value-safe; temporary validation/approval sidecars remain outside the checkout."
     write_json_atomic(index_path, index)
     return reference
 
 
-def export_evidence_manifest(payload: Mapping[str, Any]) -> None:
+def export_evidence_manifest(
+    payload: Mapping[str, Any],
+    *,
+    relative_path: str = EVIDENCE_RELATIVE_PATH,
+) -> None:
     """Write a separate safe lifecycle manifest after the full run succeeds."""
 
     forbidden = {"OPENAI_API_KEY", "LLM_API_KEY", "CODEX_API_KEY"}
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     if any(value.encode("utf-8") in encoded for value in forbidden):
         raise ValueError("provider credential name reached native evidence")
-    write_json_atomic(ROOT / EVIDENCE_RELATIVE_PATH, dict(payload))
+    write_json_atomic(ROOT / relative_path, dict(payload))
+
+
+def source_fingerprint(root: Path = ROOT) -> str:
+    """Hash runtime and testbed sources so evidence names the code that produced it."""
+
+    paths = [root / "pyproject.toml", root / "uv.lock"]
+    for directory in (root / "src", root / "testbed"):
+        if directory.exists():
+            paths.extend(p for p in directory.rglob("*.py") if "__pycache__" not in p.parts)
+    digest = hashlib.sha256()
+    for path in sorted(p for p in paths if p.is_file()):
+        relative = path.relative_to(root).as_posix().encode("utf-8")
+        content = path.read_bytes()
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def contains_private_value(data: bytes, values: Iterable[bytes]) -> bool:
+    """Return whether any private value occurs in ``data``.
+
+    Short numeric fixtures (account and customer numbers) are matched as whole
+    digit runs: a 5-digit account number also occurs by chance inside random
+    hex identifiers, which would be a false leak. Other values match anywhere.
+    """
+    for value in values:
+        if not value:
+            continue
+        if value.isdigit():
+            if re.search(rb"(?<![0-9A-Za-z])" + re.escape(value) + rb"(?![0-9A-Za-z])", data):
+                return True
+        elif value in data:
+            return True
+    return False

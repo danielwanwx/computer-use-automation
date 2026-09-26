@@ -1,0 +1,134 @@
+{
+  "artifact": {
+    "digest": "sha256:0a46760185877094026d35fb5678b295965e73d4417fc6772003f9f742343012",
+    "reference": "capability/get_savings_balance@1.0.0"
+  },
+  "case": "replay_blocked_by_unexpected_dialog_then_human_handoff",
+  "event_records": {
+    "index_path": "evidence/handoff_run/index.json",
+    "index_sha256": "8882e4e744fe21c62ddcf4dc203024cee93e1aab64918d332088d437776c81c3"
+  },
+  "intervention_request": {
+    "capability": "get_savings_balance@1.0.0",
+    "epoch": 1,
+    "intervention_id": "iv_9718717413cc114ac528dfab",
+    "owner": "NONE",
+    "reason": "UNKNOWN_BLOCKER",
+    "route_at_request": "accounts_overview",
+    "run_alias": "run_5dfd85a8f0769be1",
+    "same_page_as_automation": true,
+    "state": "WAITING_FOR_HUMAN",
+    "step_id": "ensure_overview"
+  },
+  "operator_action": {
+    "after": {
+      "dialog_present": false,
+      "route": "accounts_overview"
+    },
+    "before": {
+      "dialog_present": true,
+      "route": "accounts_overview"
+    },
+    "category": "DISMISS_UNEXPECTED_DIALOG",
+    "clicks": [
+      {
+        "inside_injected_dialog": true,
+        "role": null,
+        "tag": "button"
+      }
+    ],
+    "performed_by": "scripted_operator",
+    "same_page_as_automation": true
+  },
+  "result": {
+    "independent_oracle_match": true,
+    "outputs_returned": [
+      "available_balance",
+      "currency"
+    ],
+    "provider_calls": 0,
+    "status": "SUCCESS"
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "timeline": [
+    {
+      "kind": "blocker_injected",
+      "kind_of_blocker": "unclassified_modal_dialog",
+      "route": "accounts_overview",
+      "t_ms": 616
+    },
+    {
+      "kind": "replay_started",
+      "run_alias": "run_5dfd85a8f0769be1",
+      "t_ms": 619
+    },
+    {
+      "epoch": 1,
+      "kind": "intervention_state",
+      "owner": "NONE",
+      "reason": "UNKNOWN_BLOCKER",
+      "state": "WAITING_FOR_HUMAN",
+      "step_id": "ensure_overview",
+      "t_ms": 667
+    },
+    {
+      "epoch": 1,
+      "kind": "intervention_requested",
+      "reason": "UNKNOWN_BLOCKER",
+      "step_id": "ensure_overview",
+      "t_ms": 722
+    },
+    {
+      "epoch": 2,
+      "kind": "intervention_state",
+      "owner": "HUMAN",
+      "reason": "UNKNOWN_BLOCKER",
+      "state": "HUMAN_CLAIMED",
+      "step_id": "ensure_overview",
+      "t_ms": 722
+    },
+    {
+      "epoch": 2,
+      "kind": "operator_claimed",
+      "operator_ref": "local_operator",
+      "owner": "HUMAN",
+      "t_ms": 722
+    },
+    {
+      "category": "DISMISS_UNEXPECTED_DIALOG",
+      "click_count": 1,
+      "kind": "operator_action",
+      "t_ms": 762
+    },
+    {
+      "epoch": 3,
+      "kind": "intervention_state",
+      "owner": "RESUMING",
+      "reason": "UNKNOWN_BLOCKER",
+      "state": "RESUMING",
+      "step_id": "ensure_overview",
+      "t_ms": 762
+    },
+    {
+      "epoch": 4,
+      "kind": "intervention_state",
+      "owner": "RUNTIME",
+      "reason": "UNKNOWN_BLOCKER",
+      "state": "RUNNING",
+      "step_id": "ensure_overview",
+      "t_ms": 892
+    },
+    {
+      "epoch": 4,
+      "kind": "operator_resumed",
+      "state": "RUNNING",
+      "t_ms": 892
+    },
+    {
+      "kind": "replay_finished",
+      "status": "SUCCESS",
+      "t_ms": 1621
+    }
+  ]
+}

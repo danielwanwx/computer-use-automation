@@ -96,7 +96,11 @@ def test_sink_persists_only_whitelisted_safe_metadata_events_and_snapshot(tmp_pa
     assert manifest.is_file()
     assert sink.get_run(run_alias).state is RunState.RUNNING
     with sqlite3.connect(tmp_path / "evidence" / "evidence.sqlite3") as connection:
-        assert connection.execute("select count(*) from events").fetchone() == (1,)
+        # The emitted observation event plus RUN_STATE_CHANGED (CREATED -> RUNNING).
+        assert connection.execute("select event_type from events order by rowid").fetchall() == [
+            ("OBSERVATION_CAPTURED",),
+            ("RUN_STATE_CHANGED",),
+        ]
         assert connection.execute("select count(*) from runs").fetchone() == (1,)
     assert stat.S_IMODE((tmp_path / "evidence" / "evidence.sqlite3").stat().st_mode) == 0o600
 

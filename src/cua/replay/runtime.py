@@ -1101,6 +1101,10 @@ class ReplayRuntime:
             evidence_ref = self._gateway._capture(context, observation, view)
             if evidence_ref is None:
                 raise _ReplayStop(SafeReasonCode.EVIDENCE_ERROR, step_id)
+            if view.unknown_blocker:
+                # An unclassified dialog is not a failed precondition: the snapshot
+                # is captured above, and the run escalates instead of failing hard.
+                raise _ReplayStop(SafeReasonCode.UNKNOWN_BLOCKER, step_id)
             return _CurrentObservation(observation, view, evidence_ref)
 
         try:
@@ -1680,7 +1684,9 @@ def _expected_source_satisfied(step: BundleStep, bundle: CapabilityBundle, view)
 def _account_not_found(bundle, step, view, context) -> bool:
     if view.overview_complete is not True:
         return False
-    if not target_is_account_binding(bundle, step):
+    # Absence is a business outcome when judged from a complete overview, either by
+    # the declared membership ASSERT or by the step that clicks the account link.
+    if not (target_is_account_binding(bundle, step) or _is_membership_assertion(step, bundle)):
         return False
     account_id = context.input_bindings["inputs.account_id"].get_secret_value()
     return account_id not in view.account_ids
