@@ -2,6 +2,10 @@
 
 An LLM works out how to complete a task in a legacy banking UI that has no API. The successful run is compiled into a typed, versioned capability, and that capability replays deterministically with no model in the loop. When replay meets something it cannot classify, it pauses and hands the same live browser session to a human, then resumes.
 
+[![Demo video (2:19): real discovery, no-model replay, outcomes, and a live human handoff](docs/demo-thumb.png)](docs/demo.mp4)
+
+**[▶ Watch the 2-minute demo](docs/demo.mp4).** All browser footage is a real recording of the runs described below; any cuts or slow-downs are labelled on screen.
+
 - **Target:** [Parasoft ParaBank](https://github.com/parasoft/parabank), pinned to commit `ee82474b`, built and run locally on loopback. It is a server-rendered JSP banking app with table layouts and no test IDs, which makes it a fair stand-in for a legacy back-office screen.
 - **Capability:** `get_savings_balance(account_id) -> {available_balance, currency}`, read-only.
 - **Design write-up:** [REPORT.md](REPORT.md). **Run evidence:** [evidence/RUN_LOG.md](evidence/RUN_LOG.md).
